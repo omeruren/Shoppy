@@ -1,1 +1,6 @@
-<Solution />
+<Solution>
+  <Project Path="Shoppy.Business/Shoppy.Business.csproj" />
+  <Project Path="Shoppy.DataAccess/Shoppy.DataAccess.csproj" />
+  <Project Path="Shoppy.Entity/Shoppy.Entity.csproj" />
+  <Project Path="Shoppy.WebAPI/Shoppy.WebAPI.csproj" />
+</Solution>
