@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Shoppy.DataAccess\Shoppy.DataAccess.csproj" />
+  </ItemGroup>
+
 </Project>
