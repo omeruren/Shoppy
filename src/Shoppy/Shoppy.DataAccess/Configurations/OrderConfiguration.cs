@@ -19,6 +19,9 @@ internal class OrderConfiguration : IEntityTypeConfiguration<Order>
             .WithOne(o => o.Order)
             .HasForeignKey(o => o.OrderId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasQueryFilter(x => !x.IsDeleted);
+
     }
 }
 
@@ -41,5 +44,8 @@ internal sealed class OrdertemConfiguration : IEntityTypeConfiguration<OrderItem
         {
             t.HasCheckConstraint("CK_OrderItems_Quantity", "[Quantity] > 0");
         });
+
+        builder.HasQueryFilter(x => !x.IsDeleted);
+
     }
 }

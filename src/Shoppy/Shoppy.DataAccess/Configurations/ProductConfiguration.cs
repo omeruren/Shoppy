@@ -30,5 +30,8 @@ internal class ProductConfiguration : IEntityTypeConfiguration<Product>
             .HasForeignKey(p => p.CategoryId)
             .IsRequired()
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasQueryFilter(x => !x.IsDeleted);
+
     }
 }

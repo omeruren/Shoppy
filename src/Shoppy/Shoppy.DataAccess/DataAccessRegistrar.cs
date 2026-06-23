@@ -5,7 +5,7 @@ using Shoppy.DataAccess.Context;
 
 namespace Shoppy.DataAccess;
 
-public static class ServiceRegistrar
+public static class DataAccessRegistrar
 {
     public static IServiceCollection AddDataAccess(this IServiceCollection services, IConfiguration configuration)
     {

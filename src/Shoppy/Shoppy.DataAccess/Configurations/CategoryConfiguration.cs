@@ -18,5 +18,6 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
         builder.HasIndex(c => c.Name)
             .IsUnique();
 
+        builder.HasQueryFilter(x => !x.IsDeleted);
     }
 }
