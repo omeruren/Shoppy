@@ -1,0 +1,19 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Shoppy.DataAccess.Context;
+
+namespace Shoppy.DataAccess;
+
+public static class ServiceRegistrar
+{
+    public static IServiceCollection AddDataAccess(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddDbContext<ApplicationDbContext>(opt =>
+        {
+            opt.UseSqlServer(configuration.GetConnectionString("SqlServer"));
+        });
+
+        return services;
+    }
+}
