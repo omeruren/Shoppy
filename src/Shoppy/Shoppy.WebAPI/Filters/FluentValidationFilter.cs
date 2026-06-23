@@ -1,10 +1,9 @@
-﻿using FluentValidation;
+using FluentValidation;
 
 namespace Shoppy.WebAPI.Filters;
 
 public class FluentValidationFilter<T> : IEndpointFilter
 {
-
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var validator = context.HttpContext.RequestServices.GetService<IValidator<T>>();
@@ -20,13 +19,15 @@ public class FluentValidationFilter<T> : IEndpointFilter
         if (!result.IsValid)
         {
             var errors = result.Errors.GroupBy(e => e.PropertyName).ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
-            return new ValidationExceptionEx(errors);
+
+            throw new ValidationExceptionEx(errors);
         }
         return await next(context);
     }
 }
-
-public sealed class ValidationExceptionEx(IDictionary<string, string[]> errors) : Exception
+public sealed class ValidationExceptionEx : Exception
 {
-    public IDictionary<string, string[]> Errors { get; } = errors;
+    public IDictionary<string, string[]> Errors { get; }
+
+    public ValidationExceptionEx(IDictionary<string, string[]> errors) => Errors = errors;
 }

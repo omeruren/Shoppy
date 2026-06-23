@@ -22,6 +22,8 @@ builder.Services.AddExceptionHandler<ExceptionHandler>().AddProblemDetails();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
+
 app.MapOpenApi();
 
 app.MapScalarApiReference();

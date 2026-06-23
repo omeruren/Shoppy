@@ -1,5 +1,6 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Shoppy.Business.BaseResult;
 using Shoppy.Business.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
@@ -10,27 +11,27 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
 {
 
     private readonly DbSet<Category> _categories = _context.Set<Category>();
-    public async Task<List<CategoryResultDto>> GetallAsync(CancellationToken cancellationToken)
+    public async Task<Result<List<CategoryResultDto>>> GetallAsync(CancellationToken cancellationToken)
     {
         List<Category> list = await _categories
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
-        var categories = list.Adapt<List<CategoryResultDto>>();
+        var categories = list.Adapt<Result<List<CategoryResultDto>>>();
 
         return categories;
     }
 
-    public async Task<CategoryResultDto> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Result<CategoryResultDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         Category? category = await _categories.FindAsync(id, cancellationToken) ?? throw new ArgumentException("Category not found.");
 
-        var categoryResult = category.Adapt<CategoryResultDto>();
+        var categoryResult = category.Adapt<Result<CategoryResultDto>>();
 
         return categoryResult;
     }
 
-    public async Task<string> CreateAsync(CategoryCreateDto request, CancellationToken cancellationToken)
+    public async Task<Result<string>> CreateAsync(CategoryCreateDto request, CancellationToken cancellationToken)
     {
         bool isExists = await _categories.AnyAsync(c => c.Name.Equals(request.Name), cancellationToken);
 
@@ -46,7 +47,7 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
     }
 
     // Update Category
-    public async Task<string> UpdateAsync(CategoryUpdateDto request, CancellationToken cancellationToken)
+    public async Task<Result<string>> UpdateAsync(CategoryUpdateDto request, CancellationToken cancellationToken)
     {
         Category? category = await _categories.FindAsync([request.Id], cancellationToken) ?? throw new ArgumentException("Category not found");
 
@@ -67,7 +68,7 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
 
 
     // Delete Category
-    public async Task<string> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Result<string>> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         Category? category = await _categories.FindAsync(id, cancellationToken) ?? throw new ArgumentException("Category not found.");
 

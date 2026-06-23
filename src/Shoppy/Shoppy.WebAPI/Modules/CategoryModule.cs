@@ -1,6 +1,8 @@
 ﻿using Carter;
+using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories;
 using Shoppy.Business.DataTransferObjects;
+using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
 
@@ -19,7 +21,7 @@ public sealed class CategoryModule : ICarterModule
             var result = await _service.GetallAsync(cancellationToken);
 
             return Results.Ok(result);
-        });
+        }).Produces<Result<List<CategoryResultDto>>>();
 
 
         // GET CATEGORY BY ID
@@ -32,7 +34,7 @@ public sealed class CategoryModule : ICarterModule
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
             return Results.Ok(result);
-        });
+        }).Produces<Result<CategoryResultDto>>();
 
         // CREATE CATEGORY
 
@@ -44,7 +46,9 @@ public sealed class CategoryModule : ICarterModule
             var result = await _service.CreateAsync(request, cancellationToken);
 
             return Results.Ok(result);
-        });
+        })
+            .Produces<Result<string>>()
+            .AddEndpointFilter<FluentValidationFilter<CategoryCreateDto>>();
 
         // UPDATE CATEGORY
 
@@ -56,7 +60,9 @@ public sealed class CategoryModule : ICarterModule
             var result = await _service.UpdateAsync(request, cancellationToken);
 
             return Results.Ok(result);
-        });
+        })
+            .Produces<Result<string>>()
+            .AddEndpointFilter<FluentValidationFilter<CategoryUpdateDto>>();
 
         // DELETE CATEGORY
 
@@ -67,6 +73,6 @@ public sealed class CategoryModule : ICarterModule
         {
             var result = await _service.DeleteAsync(id, cancellationToken);
             return Results.Ok(result);
-        });
+        }).Produces<Result<string>>();
     }
 }

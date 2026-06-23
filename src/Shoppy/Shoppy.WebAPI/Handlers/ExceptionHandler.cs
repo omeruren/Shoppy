@@ -1,27 +1,39 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Shoppy.WebAPI.Filters;
-using System.Net;
 
 namespace Shoppy.WebAPI.Handlers;
 
 public class ExceptionHandler : IExceptionHandler
 {
-    public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        if (exception is ValidationExceptionEx validationExceptionEx)
+        if (exception is ValidationExceptionEx validationException)
         {
-            var errors = validationExceptionEx.Errors.SelectMany(e => e.Value).ToList();
+            httpContext.Response.StatusCode =
+                StatusCodes.Status422UnprocessableEntity;
 
-            httpContext.Response.StatusCode = (int)HttpStatusCode.UnprocessableContent;
-
-            await httpContext.Response.WriteAsJsonAsync(errors);
+            await httpContext.Response.WriteAsJsonAsync(
+                new
+                {
+                    errors = validationException.Errors
+                },
+                cancellationToken);
 
             return true;
         }
 
-        httpContext.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+        httpContext.Response.StatusCode =
+            StatusCodes.Status500InternalServerError;
 
-        await httpContext.Response.WriteAsJsonAsync(new { exception.Message, httpContext.Response.StatusCode }, cancellationToken);
+        await httpContext.Response.WriteAsJsonAsync(
+            new
+            {
+                message = exception.Message
+            },
+            cancellationToken);
 
         return true;
     }
