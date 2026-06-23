@@ -1,6 +1,8 @@
-﻿namespace Shoppy.Entity.Models;
+﻿using Shoppy.Entity.Abstraction;
 
-public sealed class Category
+namespace Shoppy.Entity.Models;
+
+public sealed class Category : BaseEntity
 {
     public string Name { get; set; } = default!;
 }

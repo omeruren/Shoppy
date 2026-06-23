@@ -1,6 +1,8 @@
-﻿namespace Shoppy.Entity.Models;
+﻿using Shoppy.Entity.Abstraction;
 
-public class Product
+namespace Shoppy.Entity.Models;
+
+public class Product : BaseEntity
 {
     public string Name { get; set; } = default!;
     public string Description { get; set; } = default!;

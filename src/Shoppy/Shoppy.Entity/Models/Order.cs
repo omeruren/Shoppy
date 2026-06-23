@@ -1,6 +1,8 @@
-﻿namespace Shoppy.Entity.Models;
+﻿using Shoppy.Entity.Abstraction;
 
-public sealed class Order
+namespace Shoppy.Entity.Models;
+
+public sealed class Order : BaseEntity
 {
     public DateTimeOffset OrderDate { get; set; }
     public int Quantity { get; set; }
