@@ -1,6 +1,6 @@
-﻿using Shoppy.Business.DataTransferObjects.Base;
+﻿using Shoppy.Business.BaseResult;
 
-namespace Shoppy.Business.DataTransferObjects;
+namespace Shoppy.Business.Categories.DataTransferObjects;
 
 public sealed class CategoryResultDto : BaseEntityDto
 {

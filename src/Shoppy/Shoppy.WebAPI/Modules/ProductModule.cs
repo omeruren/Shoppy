@@ -1,48 +1,48 @@
 ﻿using Carter;
 using Shoppy.Business.BaseResult;
-using Shoppy.Business.Categories;
-using Shoppy.Business.Categories.DataTransferObjects;
+using Shoppy.Business.Products;
+using Shoppy.Business.Products.DataTransferObjects;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
 
-public sealed class CategoryModule : ICarterModule
+public class ProductModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/categories").WithTags("Categories");
+        var app = builder.MapGroup("/products").WithTags("Products");
 
-        // GET ALL CATEGORIES
+
+        // GET ALL PRODUCTS
 
         app.MapGet(string.Empty, async (
-            ICategoryService _service,
-            CancellationToken cancellationToken) =>
+            IProductService _service,
+            CancellationToken cancelllationToken) =>
         {
-            var result = await _service.GetallAsync(cancellationToken);
+            var result = await _service.GetAllAsync(cancelllationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 
-        }).Produces<Result<List<CategoryResultDto>>>();
+        }).Produces<Result<List<ProductResultDto>>>();
 
-
-        // GET CATEGORY BY ID
+        // GET PRODUCT BY ID
 
         app.MapGet("{id}", async (
+            IProductService _service,
             Guid id,
-            ICategoryService _service,
-            CancellationToken cancellationToken) =>
+            CancellationToken cancelllationToken) =>
         {
-            var result = await _service.GetByIdAsync(id, cancellationToken);
+            var result = await _service.GetByIdAsync(id, cancelllationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<CategoryResultDto>>();
+        }).Produces<Result<ProductResultDto>>();
 
-        // CREATE CATEGORY
+        // CREATE PRODUCT
 
         app.MapPost(string.Empty, async (
-            CategoryCreateDto request,
-            ICategoryService _service,
+            ProductCreateDto request,
+            IProductService _service,
             CancellationToken cancellationToken) =>
         {
             var result = await _service.CreateAsync(request, cancellationToken);
@@ -51,14 +51,14 @@ public sealed class CategoryModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<CategoryCreateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<ProductCreateDto>>();
 
-        // UPDATE CATEGORY
+        // UPDATE PRODUCT
 
         app.MapPut(string.Empty, async (
-            CategoryUpdateDto request,
-            ICategoryService _service,
-          CancellationToken cancellationToken) =>
+            ProductUpdateDto request,
+            IProductService _service,
+            CancellationToken cancellationToken) =>
         {
             var result = await _service.UpdateAsync(request, cancellationToken);
 
@@ -66,13 +66,13 @@ public sealed class CategoryModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<CategoryUpdateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<ProductUpdateDto>>();
 
-        // DELETE CATEGORY
+        // DELETE PRODUCT
 
         app.MapDelete("{id}", async (
             Guid id,
-            ICategoryService _service,
+            IProductService _service,
             CancellationToken cancellationToken) =>
         {
             var result = await _service.DeleteAsync(id, cancellationToken);

@@ -1,4 +1,4 @@
-﻿namespace Shoppy.Business.DataTransferObjects.Base;
+﻿namespace Shoppy.Business.BaseResult;
 
 public abstract class BaseEntityDto
 {

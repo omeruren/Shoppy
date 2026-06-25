@@ -1,5 +1,5 @@
 ﻿using FluentValidation;
-using Shoppy.Business.DataTransferObjects;
+using Shoppy.Business.Categories.DataTransferObjects;
 
 namespace Shoppy.Business.Categories.Validators;
 

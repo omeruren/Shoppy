@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Shoppy.Business.Categories;
+using Shoppy.Business.Products;
 
 namespace Shoppy.Business;
 
@@ -10,6 +11,7 @@ public static class BusinessRegistrar
     {
         // Service registrations
         services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IProductService, ProductService>();
 
         // Fluent Validation
         services.AddValidatorsFromAssembly(typeof(BusinessRegistrar).Assembly);
