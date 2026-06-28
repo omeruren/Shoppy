@@ -14,6 +14,11 @@ public static class DataAccessRegistrar
             opt.UseSqlServer(configuration.GetConnectionString("SqlServer"));
         });
 
+        services.AddIdentityCore<ApplicationDbContext>(opt =>
+        {
+            opt.Password.RequireNonAlphanumeric = false;
+        }).AddEntityFrameworkStores<ApplicationDbContext>();
+
         return services;
     }
 }
