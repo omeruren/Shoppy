@@ -4,6 +4,7 @@ using Shoppy.Business.Categories;
 using Shoppy.Business.OrderItems;
 using Shoppy.Business.Orders;
 using Shoppy.Business.Products;
+using Shoppy.Business.Users;
 
 namespace Shoppy.Business;
 
@@ -16,6 +17,7 @@ public static class BusinessRegistrar
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderItemService, OrderItemService>();
+        services.AddScoped<IUserService, UserService>();
 
         // Fluent Validation
         services.AddValidatorsFromAssembly(typeof(BusinessRegistrar).Assembly);

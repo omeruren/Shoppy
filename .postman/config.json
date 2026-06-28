@@ -1,0 +1,15 @@
+{
+  "workspace": {
+    "id": "574762a3-3506-41e2-adc2-5584572ce4d3"
+  },
+  "entities": {
+    "environments": [],
+    "flows": [],
+    "globals": [],
+    "mocks": [],
+    "specs": [
+      "..\\src\\Shoppy\\Shoppy.WebAPI\\obj\\Debug\\net10.0\\EndpointInfo\\Shoppy.WebAPI.json"
+    ],
+    "collections": []
+  }
+}

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shoppy.DataAccess.Context;
+using Shoppy.Entity.Models;
 
 namespace Shoppy.DataAccess;
 
@@ -14,7 +15,7 @@ public static class DataAccessRegistrar
             opt.UseSqlServer(configuration.GetConnectionString("SqlServer"));
         });
 
-        services.AddIdentityCore<ApplicationDbContext>(opt =>
+        services.AddIdentityCore<User>(opt =>
         {
             opt.Password.RequireNonAlphanumeric = false;
         }).AddEntityFrameworkStores<ApplicationDbContext>();

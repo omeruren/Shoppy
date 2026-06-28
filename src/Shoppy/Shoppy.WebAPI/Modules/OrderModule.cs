@@ -47,7 +47,7 @@ public class OrderModule : ICarterModule
         {
             var result = await _service.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.Conflict(result.StatusCode);
+            return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result.StatusCode);
 
         })
             .Produces<Result<string>>()

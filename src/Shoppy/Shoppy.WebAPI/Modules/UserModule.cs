@@ -1,84 +1,78 @@
 ﻿using Carter;
-using Shoppy.Business.BaseResult;
-using Shoppy.Business.OrderItems;
-using Shoppy.Business.OrderItems.DataTransferObjects;
-using Shoppy.WebAPI.Filters;
+using Shoppy.Business.Users;
+using Shoppy.Business.Users.DataTransferObjects;
 
 namespace Shoppy.WebAPI.Modules;
 
-public sealed class OrderItemModule : ICarterModule
+public class UserModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/items").WithTags("Items");
+        var app = builder.MapGroup("/users").WithTags("Users");
 
-        // GET ALL ITEMS
+
+
+        // GET ALL USERS
 
         app.MapGet(string.Empty, async (
-            IOrderItemService _service,
+            IUserService _service,
             CancellationToken cancellationToken) =>
         {
             var result = await _service.GetAllAsync(cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+        });
 
-        }).Produces<Result<List<OrderItemResultDto>>>();
 
-
-        // GET ITEM BY ID
+        // GET USER BY ID
 
         app.MapGet("{id}", async (
             Guid id,
-            IOrderItemService _service,
+            IUserService _service,
             CancellationToken cancellationToken) =>
         {
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+        });
 
-        }).Produces<Result<OrderItemResultDto>>();
 
-        // CREATE ITEM
+        // CREATE USER
 
         app.MapPost(string.Empty, async (
-            OrderItemCreateDto request,
-            IOrderItemService _service,
+            UserCreateDto request,
+            IUserService _service,
             CancellationToken cancellationToken) =>
         {
             var result = await _service.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result.StatusCode);
+            return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result);
+        });
 
-        })
-            .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<OrderItemCreateDto>>();
-
-        // UPDATE ITEM
+        // UPDATE USER
 
         app.MapPut(string.Empty, async (
-            OrderItemUpdateDto request,
-            IOrderItemService _service,
-          CancellationToken cancellationToken) =>
+            UserUpdateDto request,
+            IUserService _service,
+            CancellationToken cancellationToken) =>
         {
             var result = await _service.UpdateAsync(request, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+        });
 
-        })
-            .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<OrderItemUpdateDto>>();
 
-        // DELETE ITEM
+        // DELETE USER
 
         app.MapDelete("{id}", async (
             Guid id,
-            IOrderItemService _service,
+            IUserService _service,
             CancellationToken cancellationToken) =>
         {
             var result = await _service.DeleteAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+        });
 
-        }).Produces<Result<string>>();
     }
 }
