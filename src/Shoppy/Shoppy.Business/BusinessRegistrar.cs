@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Shoppy.Business.Auth;
 using Shoppy.Business.Categories;
 using Shoppy.Business.OrderItems;
 using Shoppy.Business.Orders;
@@ -18,6 +19,8 @@ public static class BusinessRegistrar
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IOrderItemService, OrderItemService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<JwtProvider>();
 
         // Fluent Validation
         services.AddValidatorsFromAssembly(typeof(BusinessRegistrar).Assembly);

@@ -1,4 +1,5 @@
 ﻿using Carter;
+using Shoppy.Business.Auth;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories;
 using Shoppy.Business.Categories.DataTransferObjects;
@@ -10,7 +11,7 @@ public sealed class CategoryModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/categories").WithTags("Categories");
+        var app = builder.MapGroup("/categories").WithTags("Categories").RequireAuthorization();
 
         // GET ALL CATEGORIES
 
@@ -80,5 +81,25 @@ public sealed class CategoryModule : ICarterModule
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
         }).Produces<Result<string>>();
+    }
+}
+
+public sealed class AuthModule : ICarterModule
+{
+    public void AddRoutes(IEndpointRouteBuilder builder)
+    {
+        var app = builder.MapGroup("/auth").WithTags("Auth");
+
+        // LOGIN
+
+        app.MapPost("login", async (
+            string userName,
+            string password,
+            IAuthService _service) =>
+        {
+            var result = await _service.LoginAsync(userName, password);
+
+            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+        });
     }
 }
