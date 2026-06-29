@@ -23,9 +23,14 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
                 Name = p.Name,
 
                 CreatedAt = p.CreatedAt,
+                CreatedBy = p.CreatedBy,
+
                 UpdatedAt = p.UpdatedAt,
+                UpdatedBy = p.UpdatedBy,
+
                 IsDeleted = p.IsDeleted,
                 DeletedAt = p.DeletedAt,
+                DeletedBy = p.DeletedBy
 
             })
             .ToListAsync(cancellationToken);

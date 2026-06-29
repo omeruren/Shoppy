@@ -7,6 +7,7 @@ using Shoppy.WebAPI.Handlers;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddHttpContextAccessor();
 
 // register services
 builder.Services.AddDataAccess(builder.Configuration).AddBusiness();

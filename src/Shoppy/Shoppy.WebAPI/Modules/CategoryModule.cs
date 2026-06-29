@@ -101,5 +101,19 @@ public sealed class AuthModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
         });
+
+
+        app.MapGet("/me", (HttpContext context) =>
+        {
+            return Results.Ok(new
+            {
+                context.User.Identity?.IsAuthenticated,
+                Claims = context.User.Claims.Select(x => new
+                {
+                    x.Type,
+                    x.Value
+                })
+            });
+        }).RequireAuthorization();
     }
 }

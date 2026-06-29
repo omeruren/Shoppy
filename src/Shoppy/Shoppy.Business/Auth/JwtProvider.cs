@@ -25,7 +25,7 @@ public sealed class JwtProvider(IOptions<JwtOptions> _options)
             audience: _options.Value.Audience,
             claims: new List<Claim>
             {
-                new("userId",user.Id.ToString()),
+                new(ClaimTypes.NameIdentifier.ToString(),user.Id.ToString()),
                 new("userName",user.UserName!),
                 new("fullName",user.FullName),
                 new("email",user.Email!)

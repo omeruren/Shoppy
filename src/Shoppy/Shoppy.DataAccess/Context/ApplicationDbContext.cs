@@ -26,13 +26,17 @@ public sealed class ApplicationDbContext : IdentityDbContext<User, IdentityRole<
     #endregion
 
 
-    public ApplicationDbContext(DbContextOptions options) : base(options)
+    public ApplicationDbContext(
+     DbContextOptions<ApplicationDbContext> options,
+     IHttpContextAccessor httpContextAccessor)
+     : base(options)
     {
+        _httpContextAccessor = httpContextAccessor;
     }
 
 
 
-    public ApplicationDbContext(IHttpContextAccessor? httpContext) => this._httpContextAccessor = httpContext;
+    //public ApplicationDbContext(IHttpContextAccessor? httpContext) => this._httpContextAccessor = httpContext;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
