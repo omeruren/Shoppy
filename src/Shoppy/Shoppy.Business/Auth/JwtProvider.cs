@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.Options;
 using Shoppy.Entity.Models;
 using System.IdentityModel.Tokens.Jwt;
@@ -11,7 +12,7 @@ namespace Shoppy.Business.Auth;
 public sealed class JwtProvider(IOptions<JwtOptions> _options)
 {
 
-    public string CreateToken(User user)
+    public LoginResponseDto CreateToken(User user)
     {
         string secretKey = _options.Value.SecretKey;
 
@@ -35,9 +36,9 @@ public sealed class JwtProvider(IOptions<JwtOptions> _options)
             );
 
         JwtSecurityTokenHandler handler = new();
-        var token = handler.WriteToken(jwtToken);
+        var accessToken = handler.WriteToken(jwtToken);
 
-        return token;
+        return new(accessToken);
     }
 }
 

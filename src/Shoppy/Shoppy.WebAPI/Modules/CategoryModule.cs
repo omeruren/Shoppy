@@ -1,5 +1,6 @@
 ﻿using Carter;
 using Shoppy.Business.Auth;
+using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories;
 using Shoppy.Business.Categories.DataTransferObjects;
@@ -93,11 +94,10 @@ public sealed class AuthModule : ICarterModule
         // LOGIN
 
         app.MapPost("login", async (
-            string userName,
-            string password,
+           LoginRequestDto request,
             IAuthService _service) =>
         {
-            var result = await _service.LoginAsync(userName, password);
+            var result = await _service.LoginAsync(request);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
         });

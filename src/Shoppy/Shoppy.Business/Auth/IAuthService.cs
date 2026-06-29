@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.BaseResult;
 using Shoppy.Entity.Models;
 
@@ -6,32 +7,32 @@ namespace Shoppy.Business.Auth;
 
 public interface IAuthService
 {
-    Task<Result<string>> LoginAsync(string userName, string password);
+    Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request);
 }
 
 public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider) : IAuthService
 {
 
     // LOGIN
-    public async Task<Result<string>> LoginAsync(string userName, string password)
+    public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request)
     {
-        var user = await _userManager.FindByNameAsync(userName);
+        var user = await _userManager.FindByNameAsync(request.UserName);
 
         if (user is null)
-            return Result<string>.Failure(401, "User name or password is incorrect.");
+            return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
 
         if (user.IsDeleted)
-            return Result<string>.Failure(401, "User name or password is incorrect.");
+            return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
 
 
 
-        var result = await _userManager.CheckPasswordAsync(user, password);
+        var result = await _userManager.CheckPasswordAsync(user, request.Password);
 
         if (!result)
-            return Result<string>.Failure(401, "User name or password is incorrect.");
+            return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
 
-        var token = _jwtProvider.CreateToken(user);
+        var accessToken = _jwtProvider.CreateToken(user);
 
-        return Result<string>.Success(token);
+        return Result<LoginResponseDto>.Success(accessToken);
     }
 }
