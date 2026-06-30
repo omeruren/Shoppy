@@ -35,7 +35,10 @@ builder.Services.ConfigureOptions<JwtOptionsSetup>();
 builder.Services.AddAuthentication().AddJwtBearer();
 
 // Authorization
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(conf =>
+{
+    conf.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+});
 
 var app = builder.Build();
 

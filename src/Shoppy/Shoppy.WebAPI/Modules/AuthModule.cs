@@ -14,25 +14,12 @@ public sealed class AuthModule : ICarterModule
 
         app.MapPost("login", async (
            LoginRequestDto request,
-            IAuthService _service) =>
+            IAuthService _service,
+            CancellationToken cancellationToken) =>
         {
-            var result = await _service.LoginAsync(request);
+            var result = await _service.LoginAsync(request, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
         });
-
-
-        app.MapGet("/me", (HttpContext context) =>
-        {
-            return Results.Ok(new
-            {
-                context.User.Identity?.IsAuthenticated,
-                Claims = context.User.Claims.Select(x => new
-                {
-                    x.Type,
-                    x.Value
-                })
-            });
-        }).RequireAuthorization();
     }
 }

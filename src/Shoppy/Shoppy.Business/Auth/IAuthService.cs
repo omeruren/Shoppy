@@ -1,20 +1,23 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.BaseResult;
+using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Auth;
 
 public interface IAuthService
 {
-    Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request);
+    Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken);
 }
 
-public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider) : IAuthService
+public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider, ApplicationDbContext _context) : IAuthService
 {
 
+
     // LOGIN
-    public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request)
+    public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken)
     {
         var user = await _userManager.FindByNameAsync(request.UserName);
 
@@ -31,7 +34,15 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         if (!result)
             return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
 
-        var accessToken = _jwtProvider.CreateToken(user);
+
+        var roles = await _context.AppUserRoles
+              .Where(u => u.UserId == user.Id)
+              .LeftJoin(_context.AppRoles, m => m.RoleId, m => m.Id, (userRole, role) => role)
+              .Select(s => s!.Name)
+              .ToListAsync(cancellationToken);
+
+
+        var accessToken = _jwtProvider.CreateToken(user, roles);
 
         return Result<LoginResponseDto>.Success(accessToken);
     }

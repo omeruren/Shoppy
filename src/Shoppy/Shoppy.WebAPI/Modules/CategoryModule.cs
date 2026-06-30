@@ -10,7 +10,7 @@ public sealed class CategoryModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/categories").WithTags("Categories").RequireAuthorization();
+        var app = builder.MapGroup("/categories").WithTags("Categories").RequireAuthorization("Admin");
 
         // GET ALL CATEGORIES
 
