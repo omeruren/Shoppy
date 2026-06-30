@@ -21,5 +21,15 @@ public sealed class AuthModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
         });
+
+        app.MapPost("refresh", async (
+            RefreshTokenRequestDto request,
+            IAuthService _service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await _service.RefreshTokenAsync(request, cancellationToken);
+
+            return result.IsSuccessful ? Results.Ok(result) : Results.Unauthorized();
+        });
     }
 }
