@@ -23,6 +23,7 @@ public sealed class ApplicationDbContext : IdentityDbContext<User, IdentityRole<
     public DbSet<Product> Products { get; set; }
     public DbSet<Role> AppRoles { get; set; }
     public DbSet<UserRole> AppUserRoles { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
     #endregion
 
 
