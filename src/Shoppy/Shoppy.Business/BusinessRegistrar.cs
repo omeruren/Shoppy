@@ -6,6 +6,7 @@ using Shoppy.Business.OrderItems;
 using Shoppy.Business.Orders;
 using Shoppy.Business.Products;
 using Shoppy.Business.Roles;
+using Shoppy.Business.Services;
 using Shoppy.Business.UserRoles;
 using Shoppy.Business.Users;
 
@@ -24,6 +25,7 @@ public static class BusinessRegistrar
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         services.AddScoped<JwtProvider>();
 

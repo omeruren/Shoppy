@@ -27,6 +27,8 @@ builder.Services.AddExceptionHandler<ExceptionHandler>().AddProblemDetails();
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
 
+// Email Options
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 // Jwt Options setup
 
 builder.Services.ConfigureOptions<JwtOptionsSetup>();

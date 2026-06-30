@@ -11,6 +11,8 @@ public sealed class User : IdentityUser<Guid>
     public bool IsDeleted { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
 
+    public string? PasswordResetCode { get; set; }
+    public DateTimeOffset? PasswordResetCodeExpires { get; set; }
 
     // CREATE USER
     public static User Create(string firstName, string lastName, string userName, string email)
@@ -43,5 +45,22 @@ public sealed class User : IdentityUser<Guid>
     {
         IsDeleted = true;
         DeletedAt = DateTimeOffset.UtcNow;
+    }
+
+
+    // GENERATE PASSWORD RESET CODE
+    public void GeneratePasswordResetCode()
+    {
+        // We'll use cryptographically secure random number generator instead of Random number generator.
+
+        PasswordResetCode = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+        PasswordResetCodeExpires = DateTimeOffset.UtcNow.AddMinutes(15);
+    }
+
+    // CLEAR PASSWORD RESET CODE
+    public void ClearPasswordResetCode()
+    {
+        PasswordResetCode = null;
+        PasswordResetCodeExpires = null;
     }
 }

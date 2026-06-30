@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Services;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
 
@@ -12,9 +13,13 @@ public interface IAuthService
     Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken);
 
     Task<Result<LoginResponseDto>> RefreshTokenAsync(RefreshTokenRequestDto request, CancellationToken cancellationToken);
+
+    Task<Result<string>> ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken);
+
+    Task<Result<string>> ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken);
 }
 
-public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider, ApplicationDbContext _context) : IAuthService
+public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider, ApplicationDbContext _context, IEmailService _emailService) : IAuthService
 {
 
 
@@ -115,4 +120,66 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
 
         return loginResponse;
     }
+
+
+    // FORGOT PASSWORD
+    public async Task<Result<string>> ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+
+        // Always return success to prevent User enumeration attacks.
+        // do not reveal whether the email is registered or not.
+
+        if (user is null || user.IsDeleted)
+            return Result<string>.Success("If this email is registered, a password reset code has been sent.");
+        user.GeneratePasswordResetCode();
+        await _userManager.UpdateAsync(user);
+
+        string emailBody = $@"
+            <h2>Password Reset Request</h2>
+            <p>You have requested to reset your password. Please use the 6-digit code below.</p>
+            <h3 style='letter-spacing: 8px; font-size: 28px; color: #2563EB;'><strong>{user.PasswordResetCode}</strong></h3>
+            <p>This code will expire in <strong>15 minutes</strong>. Do not share it with anyone.</p>
+            <hr/>
+            <p style='font-size: 12px; color: #6B7280;'>If you did not request a password reset, you can safely ignore this email.</p>";
+
+        try
+        {
+            await _emailService.SendEmailAsync(user.Email!, "Password reset code", emailBody, cancellationToken);
+        }
+        catch (Exception)
+        {
+
+            user.ClearPasswordResetCode();
+            await _userManager.UpdateAsync(user);
+            return Result<string>.Failure(500, "Failed to sent reset password reset email. Please try again later.");
+        }
+
+        return Result<string>.Success("If this email is registered, a password reset code has been sent.");
+    }
+
+    public async Task<Result<string>> ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+
+        if (user is null || user.IsDeleted)
+            return Result<string>.Failure(404, "User not found.");
+
+        if (string.IsNullOrEmpty(user.PasswordResetCode) || user.PasswordResetCode != request.Code)
+            return Result<string>.Failure(400, "Invalid reset code.");
+
+        // change password directly without identity's token provider system since we have our own OTP verification above
+        var removeResult = await _userManager.RemovePasswordAsync(user);
+
+        if (!removeResult.Succeeded)
+            return Result<string>.Failure(400, string.Join(", ", removeResult.Errors.Select(e => e.Description)));
+
+        var addResult = await _userManager.AddPasswordAsync(user, request.NewPassword);
+
+        if (!addResult.Succeeded)
+            return Result<string>.Failure(400, string.Join(", ", removeResult.Errors.Select(e => e.Description)));
+
+        return Result<string>.Success("Password has been reset successfully.");
+    }
+
 }
