@@ -1,13 +1,21 @@
 using Carter;
 using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
+using Serilog;
 using Shoppy.Business;
 using Shoppy.Business.Options;
 using Shoppy.DataAccess;
 using Shoppy.WebAPI.Handlers;
+using Shoppy.WebAPI.MiddleWares;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
+// SERILOG
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration.ReadFrom.Configuration(context.Configuration);
+});
 
 // register services
 builder.Services.AddHttpContextAccessor();
@@ -70,11 +78,20 @@ builder.Services.AddAuthorization(conf =>
 
 var app = builder.Build();
 
+
+// Correlation Id Middleware (must be early in pipeline)
+app.UseMiddleware<CorrelationMiddleware>();
+
+// serilog request logging
+app.UseSerilogRequestLogging();
+
 app.UseExceptionHandler();
+
+app.MapOpenApi();
 
 app.UseRateLimiter();
 
-app.MapOpenApi();
+
 
 app.MapScalarApiReference();
 
