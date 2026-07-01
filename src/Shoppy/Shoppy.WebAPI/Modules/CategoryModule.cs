@@ -2,6 +2,7 @@
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories;
 using Shoppy.Business.Categories.DataTransferObjects;
+using Shoppy.Business.Extensions;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
@@ -16,9 +17,14 @@ public sealed class CategoryModule : ICarterModule
 
         app.MapGet(string.Empty, async (
             ICategoryService _service,
-            CancellationToken cancellationToken) =>
+            int pageNumber = 1,
+            int pagesize = 5,
+            string searchTerm = "",
+            CancellationToken cancellationToken = default) =>
         {
-            var result = await _service.GetallAsync(cancellationToken);
+            var paginationRequest = new PaginationRequestDto(pageNumber, pagesize, searchTerm);
+
+            var result = await _service.GetallAsync(paginationRequest, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 

@@ -1,6 +1,7 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.Business.Orders.DataTransferObjects;
 using Shoppy.DataAccess.Context;
@@ -14,9 +15,9 @@ public sealed class OrderService(ApplicationDbContext _context) : IOrderService
 
     // GET ALL ORDERS
 
-    public async Task<Result<List<OrderResultDto>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<PaginationResultDto<OrderResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        List<OrderResultDto> orders = await _orders
+        PaginationResultDto<OrderResultDto> orders = await _orders
             .AsNoTracking()
             .Include(o => o.Items)
             .Select(p => new OrderResultDto
@@ -41,7 +42,8 @@ public sealed class OrderService(ApplicationDbContext _context) : IOrderService
                 IsDeleted = p.IsDeleted,
                 DeletedAt = p.DeletedAt
 
-            }).ToListAsync(cancellationToken);
+            })
+            .WithPagination(request, cancellationToken);
 
         return orders;
     }

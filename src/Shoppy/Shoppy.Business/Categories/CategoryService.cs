@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories.DataTransferObjects;
+using Shoppy.Business.Extensions;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
 
@@ -13,9 +14,9 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
     private readonly DbSet<Category> _categories = _context.Set<Category>();
 
     // Get All Categories
-    public async Task<Result<List<CategoryResultDto>>> GetallAsync(CancellationToken cancellationToken)
+    public async Task<Result<PaginationResultDto<CategoryResultDto>>> GetallAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        List<CategoryResultDto> categories = await _categories
+        PaginationResultDto<CategoryResultDto> categories = await _categories
             .AsNoTracking()
             .Select(p => new CategoryResultDto
             {
@@ -33,7 +34,8 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
                 DeletedBy = p.DeletedBy
 
             })
-            .ToListAsync(cancellationToken);
+            .OrderBy(c => c.Name)
+            .WithPagination(request, cancellationToken);
 
         return categories;
     }

@@ -1,5 +1,6 @@
 ﻿using Carter;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.Products;
 using Shoppy.Business.Products.DataTransferObjects;
 using Shoppy.WebAPI.Filters;
@@ -17,9 +18,14 @@ public class ProductModule : ICarterModule
 
         app.MapGet(string.Empty, async (
             IProductService _service,
-            CancellationToken cancelllationToken) =>
+            int pageNumber = 1,
+            int pageSize = 5,
+            string searchTerm = "",
+            CancellationToken cancelllationToken = default) =>
         {
-            var result = await _service.GetAllAsync(cancelllationToken);
+            var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm);
+            var result = await _service.GetAllAsync(paginationRequest, cancelllationToken);
+
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 

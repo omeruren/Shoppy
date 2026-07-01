@@ -1,6 +1,7 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.Products.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
@@ -13,7 +14,7 @@ public sealed class ProductService(ApplicationDbContext _context) : IProductServ
 
 
     // Get All Products
-    public async Task<Result<List<ProductResultDto>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<PaginationResultDto<ProductResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
         return await _products
             .AsNoTracking()
@@ -32,7 +33,7 @@ public sealed class ProductService(ApplicationDbContext _context) : IProductServ
                 IsDeleted = s.product.IsDeleted
             })
             .OrderBy(p => p.Name)
-            .ToListAsync(cancellationToken);
+            .WithPagination(request, cancellationToken);
 
     }
 

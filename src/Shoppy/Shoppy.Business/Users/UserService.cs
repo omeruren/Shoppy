@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.Users.DataTransferObjects;
 using Shoppy.Entity.Models;
 
@@ -12,13 +13,13 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
 
     // GET ALL USERS
 
-    public async Task<Result<List<User>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<PaginationResultDto<User>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
         var result = await _userManager
             .Users
             .AsNoTracking()
             .OrderBy(u => u.FullName)
-            .ToListAsync(cancellationToken);
+            .WithPagination(request, cancellationToken);
 
         return result;
     }
