@@ -9,7 +9,10 @@ public sealed class AuthModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/auth").WithTags("Auth");
+        var app = builder
+            .MapGroup("/auth")
+            .WithTags("Auth")
+            .RequireRateLimiting("auth-fixed");
 
         // LOGIN
 

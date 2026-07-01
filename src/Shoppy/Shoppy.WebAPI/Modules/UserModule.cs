@@ -9,7 +9,10 @@ public class UserModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/users").WithTags("Users");
+        var app = builder
+            .MapGroup("/users")
+            .WithTags("Users")
+            .RequireRateLimiting("fixed");
 
 
 

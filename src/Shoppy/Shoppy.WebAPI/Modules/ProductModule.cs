@@ -11,7 +11,10 @@ public class ProductModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/products").WithTags("Products");
+        var app = builder
+            .MapGroup("/products")
+            .WithTags("Products")
+            .RequireRateLimiting("fixed");
 
 
         // GET ALL PRODUCTS

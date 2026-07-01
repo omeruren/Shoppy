@@ -11,7 +11,10 @@ public sealed class OrderItemModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/items").WithTags("Items");
+        var app = builder
+            .MapGroup("/items")
+            .WithTags("Items")
+            .RequireRateLimiting("fixed");
 
         // GET ALL ITEMS
 

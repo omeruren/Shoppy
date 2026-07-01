@@ -10,7 +10,11 @@ public sealed class RoleModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder.MapGroup("/roles").WithTags("Roles").RequireAuthorization();
+        var app = builder
+            .MapGroup("/roles")
+            .WithTags("Roles")
+            .RequireAuthorization()
+            .RequireRateLimiting("fixed");
 
 
         // GET ALL ROLES
