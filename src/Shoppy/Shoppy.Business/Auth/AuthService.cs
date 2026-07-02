@@ -179,6 +179,9 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         if (string.IsNullOrEmpty(user.PasswordResetCode) || user.PasswordResetCode != request.Code)
             return Result<string>.Failure(400, "Invalid reset code.");
 
+        if (user.PasswordResetCodeExpires is null || user.PasswordResetCodeExpires < DateTimeOffset.UtcNow)
+            return Result<string>.Failure(400, "Invalid reset code.");
+
         // change password directly without identity's token provider system since we have our own OTP verification above
         var removeResult = await _userManager.RemovePasswordAsync(user);
 
@@ -188,7 +191,10 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         var addResult = await _userManager.AddPasswordAsync(user, request.NewPassword);
 
         if (!addResult.Succeeded)
-            return Result<string>.Failure(400, string.Join(", ", removeResult.Errors.Select(e => e.Description)));
+            return Result<string>.Failure(400, string.Join(", ", addResult.Errors.Select(e => e.Description)));
+
+        user.ClearPasswordResetCode();
+        await _userManager.UpdateAsync(user);
 
         return Result<string>.Success("Password has been reset successfully.");
     }
