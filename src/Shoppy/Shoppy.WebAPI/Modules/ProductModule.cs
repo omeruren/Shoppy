@@ -2,6 +2,7 @@
 using Carter;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
+using Shoppy.Business.Permissions;
 using Shoppy.Business.Products;
 using Shoppy.Business.Products.DataTransferObjects;
 using Shoppy.WebAPI.Filters;
@@ -22,8 +23,7 @@ public class ProductModule : ICarterModule
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Products")
-            .RequireRateLimiting("fixed")
-            .RequireAuthorization();
+            .RequireRateLimiting("fixed");
 
         // GET ALL PRODUCTS
 
@@ -40,7 +40,9 @@ public class ProductModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 
-        }).Produces<Result<List<ProductResultDto>>>();
+        })
+            .Produces<Result<List<ProductResultDto>>>()
+            .RequireAuthorization(Permissions.Products.Read);
 
         // GET PRODUCT BY ID
 
@@ -53,7 +55,9 @@ public class ProductModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<ProductResultDto>>();
+        })
+            .Produces<Result<ProductResultDto>>()
+            .RequireAuthorization(Permissions.Products.Read);
 
         // CREATE PRODUCT
 
@@ -68,7 +72,8 @@ public class ProductModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<ProductCreateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<ProductCreateDto>>()
+            .RequireAuthorization(Permissions.Products.Create);
 
         // UPDATE PRODUCT
 
@@ -83,7 +88,8 @@ public class ProductModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<ProductUpdateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<ProductUpdateDto>>()
+            .RequireAuthorization(Permissions.Products.Update);
 
         // DELETE PRODUCT
 
@@ -96,6 +102,8 @@ public class ProductModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<string>>();
+        })
+            .Produces<Result<string>>()
+            .RequireAuthorization(Permissions.Products.Delete);
     }
 }

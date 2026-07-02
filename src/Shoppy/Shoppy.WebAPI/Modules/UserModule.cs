@@ -1,8 +1,10 @@
-﻿using Asp.Versioning;
+using Asp.Versioning;
 using Carter;
-using Shoppy.Business.Extensions;
+using Shoppy.Business.Permissions;
 using Shoppy.Business.Users;
 using Shoppy.Business.Users.DataTransferObjects;
+using Shoppy.Business.Extensions;
+using System.Security.Claims;
 
 namespace Shoppy.WebAPI.Modules;
 
@@ -34,7 +36,7 @@ public class UserModule : ICarterModule
             var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
-        }).RequireRateLimiting("Admin");
+        }).RequireAuthorization(Permissions.Users.Read);
 
 
         // GET USER BY ID
@@ -47,7 +49,7 @@ public class UserModule : ICarterModule
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
-        }).RequireRateLimiting("Admin");
+        }).RequireAuthorization(Permissions.Users.Read);
 
 
         // CREATE USER
@@ -60,7 +62,7 @@ public class UserModule : ICarterModule
             var result = await _service.CreateAsync(request, cancellationToken);
 
             return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result);
-        }).RequireRateLimiting("Admin");
+        }).RequireAuthorization(Permissions.Users.Create);
 
         // UPDATE USER
 
@@ -72,7 +74,7 @@ public class UserModule : ICarterModule
             var result = await _service.UpdateAsync(request, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
-        }).RequireRateLimiting("Admin");
+        }).RequireAuthorization(Permissions.Users.Update);
 
 
         // DELETE USER
@@ -85,7 +87,51 @@ public class UserModule : ICarterModule
             var result = await _service.DeleteAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
-        }).RequireRateLimiting("Admin");
+        }).RequireAuthorization(Permissions.Users.Delete);
+
+
+        // ── Self-service: current user's own account ──────────────────────
+
+        // GET MY PROFILE
+
+        app.MapGet("me", async (
+            ClaimsPrincipal user,
+            IUserService _service,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.GetProfileAsync(userId, cancellationToken);
+
+            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+        }).RequireAuthorization();
+
+        // UPDATE MY PROFILE
+
+        app.MapPut("me", async (
+            ClaimsPrincipal user,
+            UserUpdateSelfDto request,
+            IUserService _service,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.UpdateSelfAsync(userId, request, cancellationToken);
+
+            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+        }).RequireAuthorization();
+
+        // CHANGE MY PASSWORD
+
+        app.MapPost("me/change-password", async (
+            ClaimsPrincipal user,
+            ChangePasswordDto request,
+            IUserService _service,
+            CancellationToken cancellationToken) =>
+        {
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await _service.ChangePasswordAsync(userId, request, cancellationToken);
+
+            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+        }).RequireAuthorization();
 
     }
 }

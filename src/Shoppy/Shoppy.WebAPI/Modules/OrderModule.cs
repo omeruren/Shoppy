@@ -4,6 +4,7 @@ using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Orders;
 using Shoppy.Business.Orders.DataTransferObjects;
+using Shoppy.Business.Permissions;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
@@ -22,8 +23,7 @@ public class OrderModule : ICarterModule
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Orders")
-            .RequireRateLimiting("fixed")
-            .RequireAuthorization();
+            .RequireRateLimiting("fixed");
 
         // GET ALL ORDERS
 
@@ -40,7 +40,9 @@ public class OrderModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 
-        }).Produces<Result<List<OrderResultDto>>>();
+        })
+            .Produces<Result<List<OrderResultDto>>>()
+            .RequireAuthorization(Permissions.Orders.Read);
 
         // GET ORDER BY ID
 
@@ -53,7 +55,9 @@ public class OrderModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<OrderResultDto>>();
+        })
+            .Produces<Result<OrderResultDto>>()
+            .RequireAuthorization(Permissions.Orders.Read);
 
         // CREATE ORDER
 
@@ -68,7 +72,8 @@ public class OrderModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<OrderCreateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<OrderCreateDto>>()
+            .RequireAuthorization(Permissions.Orders.Create);
 
         // UPDATE ORDER
 
@@ -83,7 +88,8 @@ public class OrderModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<OrderUpdateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<OrderUpdateDto>>()
+            .RequireAuthorization(Permissions.Orders.Update);
 
         // DELETE ORDER
 
@@ -96,7 +102,9 @@ public class OrderModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<string>>();
+        })
+            .Produces<Result<string>>()
+            .RequireAuthorization(Permissions.Orders.Delete);
     }
 }
 

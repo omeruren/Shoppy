@@ -4,6 +4,7 @@ using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories;
 using Shoppy.Business.Categories.DataTransferObjects;
 using Shoppy.Business.Extensions;
+using Shoppy.Business.Permissions;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
@@ -22,8 +23,7 @@ public sealed class CategoryModule : ICarterModule
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Categories")
-            .RequireRateLimiting("fixed")
-            .RequireAuthorization("Admin");
+            .RequireRateLimiting("fixed");
 
         // GET ALL CATEGORIES
 
@@ -40,7 +40,9 @@ public sealed class CategoryModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 
-        }).Produces<Result<List<CategoryResultDto>>>();
+        })
+            .Produces<Result<List<CategoryResultDto>>>()
+            .RequireAuthorization(Permissions.Categories.Read);
 
 
         // GET CATEGORY BY ID
@@ -54,7 +56,9 @@ public sealed class CategoryModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<CategoryResultDto>>();
+        })
+            .Produces<Result<CategoryResultDto>>()
+            .RequireAuthorization(Permissions.Categories.Read);
 
         // CREATE CATEGORY
 
@@ -69,7 +73,8 @@ public sealed class CategoryModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<CategoryCreateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<CategoryCreateDto>>()
+            .RequireAuthorization(Permissions.Categories.Create);
 
         // UPDATE CATEGORY
 
@@ -84,7 +89,8 @@ public sealed class CategoryModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<CategoryUpdateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<CategoryUpdateDto>>()
+            .RequireAuthorization(Permissions.Categories.Update);
 
         // DELETE CATEGORY
 
@@ -97,6 +103,8 @@ public sealed class CategoryModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<string>>();
+        })
+            .Produces<Result<string>>()
+            .RequireAuthorization(Permissions.Categories.Delete);
     }
 }

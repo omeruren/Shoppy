@@ -61,7 +61,7 @@ public sealed class ApplicationDbContext : IdentityDbContext<User, IdentityRole<
 
         Guid? userId = null;
 
-        if (_httpContextAccessor?.HttpContext.User?.Identity?.IsAuthenticated == true)
+        if (_httpContextAccessor?.HttpContext?.User?.Identity?.IsAuthenticated == true)
         {
             var userIdClaim = _httpContextAccessor.HttpContext.User.Claims.FirstOrDefault(u => u.Type == ClaimTypes.NameIdentifier)?.Value;
 

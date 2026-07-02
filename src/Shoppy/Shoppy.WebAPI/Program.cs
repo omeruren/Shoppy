@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Carter;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -8,9 +9,11 @@ using Scalar.AspNetCore;
 using Serilog;
 using Shoppy.Business;
 using Shoppy.Business.Options;
+using Shoppy.Business.Permissions;
 using Shoppy.DataAccess;
 using Shoppy.WebAPI.Handlers;
 using Shoppy.WebAPI.MiddleWares;
+using Shoppy.WebAPI.Seed;
 using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -97,9 +100,14 @@ builder.Services.ConfigureOptions<JwtOptionsSetup>();
 builder.Services.AddAuthentication().AddJwtBearer();
 
 // Authorization
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
 builder.Services.AddAuthorization(conf =>
 {
     conf.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+
+    foreach (var permission in Permissions.GetAll())
+        conf.AddPolicy(permission, policy => policy.Requirements.Add(new PermissionRequirement(permission)));
 });
 
 // OpenTelemetry Configuration
@@ -122,6 +130,9 @@ builder.Services.AddHealthChecks().AddSqlServer(
     tags: ["db", "sql"]);
 
 var app = builder.Build();
+
+// Seed built-in Admin/Customer roles + their permissions
+await RolePermissionSeeder.SeedAsync(app.Services);
 
 
 // Correlation Id Middleware (must be early in pipeline)

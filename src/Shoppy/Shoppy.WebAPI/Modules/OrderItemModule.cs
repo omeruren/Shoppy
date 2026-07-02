@@ -4,6 +4,7 @@ using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems;
 using Shoppy.Business.OrderItems.DataTransferObjects;
+using Shoppy.Business.Permissions;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
@@ -22,8 +23,7 @@ public sealed class OrderItemModule : ICarterModule
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("OrderItems")
-            .RequireRateLimiting("fixed")
-            .RequireAuthorization();
+            .RequireRateLimiting("fixed");
 
         // GET ALL ITEMS
 
@@ -40,7 +40,9 @@ public sealed class OrderItemModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 
-        }).Produces<Result<List<OrderItemResultDto>>>();
+        })
+            .Produces<Result<List<OrderItemResultDto>>>()
+            .RequireAuthorization(Permissions.OrderItems.Read);
 
 
         // GET ITEM BY ID
@@ -54,7 +56,9 @@ public sealed class OrderItemModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<OrderItemResultDto>>();
+        })
+            .Produces<Result<OrderItemResultDto>>()
+            .RequireAuthorization(Permissions.OrderItems.Read);
 
         // CREATE ITEM
 
@@ -69,7 +73,8 @@ public sealed class OrderItemModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<OrderItemCreateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<OrderItemCreateDto>>()
+            .RequireAuthorization(Permissions.OrderItems.Create);
 
         // UPDATE ITEM
 
@@ -84,7 +89,8 @@ public sealed class OrderItemModule : ICarterModule
 
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<OrderItemUpdateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<OrderItemUpdateDto>>()
+            .RequireAuthorization(Permissions.OrderItems.Update);
 
         // DELETE ITEM
 
@@ -97,6 +103,8 @@ public sealed class OrderItemModule : ICarterModule
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
-        }).Produces<Result<string>>();
+        })
+            .Produces<Result<string>>()
+            .RequireAuthorization(Permissions.OrderItems.Delete);
     }
 }

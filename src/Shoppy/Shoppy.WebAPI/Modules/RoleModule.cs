@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using Carter;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Permissions;
 using Shoppy.Business.Roles;
 using Shoppy.Business.Roles.DataTransferObjects;
 using Shoppy.WebAPI.Filters;
@@ -21,8 +22,7 @@ public sealed class RoleModule : ICarterModule
             .WithApiVersionSet(apiVersionSet)
             .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Roles")
-            .RequireRateLimiting("fixed")
-            .RequireAuthorization();
+            .RequireRateLimiting("fixed");
 
         // GET ALL ROLES
         app.MapGet(string.Empty, async (
@@ -32,7 +32,7 @@ public sealed class RoleModule : ICarterModule
             var result = await _service.GetAllAsync(cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
-        });
+        }).RequireAuthorization(Permissions.Roles.Read);
 
         // GET ROLE BY ID
         app.MapGet("{id}", async (
@@ -43,7 +43,7 @@ public sealed class RoleModule : ICarterModule
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
-        });
+        }).RequireAuthorization(Permissions.Roles.Read);
 
         // CREATE ROLE
         app.MapPost(string.Empty, async (
@@ -56,7 +56,8 @@ public sealed class RoleModule : ICarterModule
             return result.IsSuccessful ? Results.Ok(result) : Results.Conflict(result.StatusCode);
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<RoleCreateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<RoleCreateDto>>()
+            .RequireAuthorization(Permissions.Roles.Create);
 
         // UPDATE ROLE
         app.MapPut(string.Empty, async (
@@ -69,7 +70,8 @@ public sealed class RoleModule : ICarterModule
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
         })
             .Produces<Result<string>>()
-            .AddEndpointFilter<FluentValidationFilter<RoleUpdateDto>>();
+            .AddEndpointFilter<FluentValidationFilter<RoleUpdateDto>>()
+            .RequireAuthorization(Permissions.Roles.Update);
 
         // DELETE ROLE
         app.MapDelete("{id}", async (
@@ -80,7 +82,7 @@ public sealed class RoleModule : ICarterModule
             var result = await _service.DeleteAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
-        });
+        }).RequireAuthorization(Permissions.Roles.Delete);
 
     }
 }
