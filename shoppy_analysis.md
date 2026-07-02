@@ -30,7 +30,7 @@ IAuthService.cs(105,42): error CS7036: ... aynı hata
 
 `JwtProvider.CreateToken` 3 parametre istiyor (permission claim'lerini token'a gömmek için), ama `AuthService.LoginAsync`/`RefreshTokenAsync` hâlâ 2 parametreyle çağırıyordu.
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`AuthService`'in kullanıcının rollerine ait `RolePermissions` kayıtlarından permission listesini hesaplayıp `CreateToken`'a 3. parametre olarak geçmesi gerekiyor).
+**DURUM:** ✅ Düzeltildi — `AuthService` artık kullanıcının rollerine ait `RolePermissions` kayıtlarından permission listesini hesaplayıp `CreateToken`'a 3. parametre olarak geçiyor. `dotnet build src/Shoppy/Shoppy.slnx` 0 hata / 0 uyarı ile başarılı.
 
 ---
 
@@ -432,7 +432,7 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 | CI/CD pipeline | ❌ Yok |
 | Migration stratejisi | ❓ Belirsiz |
 | Environment ayrımı | 🟡 Eksik |
-| Build durumu | 🔴 Derlenmiyor (bu oturumda düzeltilecek) |
+| Build durumu | ✅ Derleniyor (önceden derlenmiyordu) |
 | Permission enforcement | 🔴 Tamamen bağlı değil (bu oturumda düzeltilecek) |
 
 ---
@@ -441,7 +441,7 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 
 | Öncelik | Sorun | Etki | Durum |
 |---------|-------|------|-------|
-| 🔴 P0 | Proje derlenmiyordu (JwtProvider imza uyuşmazlığı) | Hiçbir şey build/run edilemiyor | 🔲 Bu oturumda düzeltilecek |
+| 🔴 P0 | Proje derlenmiyordu (JwtProvider imza uyuşmazlığı) | Hiçbir şey build/run edilemiyor | ✅ Düzeltildi |
 | 🔴 P0 | Permission sistemi hiç bağlı değil (handler kayıtsız, seed yok, endpoint yok) | Yeni özellik tamamen işlevsiz | 🔲 Bu oturumda düzeltilecek |
 | 🔴 P0 | UserModule: `RequireRateLimiting("Admin")` yetkilendirme yerine kullanılmış | Admin endpoint'leri açık + runtime exception | 🔲 Bu oturumda düzeltilecek |
 | 🟠 P0 | RoleModule: policy'siz `RequireAuthorization()` | Herhangi bir kullanıcı rol yönetebilir | 🔲 Bu oturumda düzeltilecek |
@@ -475,7 +475,7 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 
 ### 🔲 Faz 0 — Build Fix + Permission Sistemi (bu oturumda planlı)
 
-- [ ] `JwtProvider.CreateToken` çağrılarını 3 parametreye güncelle (permission hesaplama)
+- [x] `JwtProvider.CreateToken` çağrılarını 3 parametreye güncelle (permission hesaplama)
 - [ ] `PermissionAuthorizationHandler`'ı DI'a kaydet + her permission için policy tanımla
 - [ ] Admin/Customer rolleri + `RolePermissions` için seed mekanizması ekle
 - [ ] Tüm modüllerde (Product/Category/Order/OrderItem/Role/User) gerçek permission policy'lerini uygula
