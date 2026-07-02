@@ -220,13 +220,13 @@ Orijinal bulgu bunun "DTO var ama Items hiç güncellenmiyor" olduğunu söylüy
 
 ### 🟡 MEDIUM — Typo: `cancelllationToken` (3 l)
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`Shoppy.WebAPI/Modules/*.cs` içindeki 8 kullanım).
+**DURUM:** ✅ Düzeltildi — `OrderModule.cs` ve `ProductModule.cs` içindeki 8 kullanım da düzeltildi.
 
 ---
 
 ### 🟡 MEDIUM — `OrderItemConfiguration` Yanlış Dosyada + Typo
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`OrdertemConfiguration` → `OrderItemConfiguration` yeniden adlandırılıp kendi dosyasına taşınacak).
+**DURUM:** ✅ Düzeltildi — `OrdertemConfiguration` → `OrderItemConfiguration` olarak yeniden adlandırıldı ve kendi dosyasına taşındı. Saf rename olduğu için (şema değişikliği yok, EF konfigürasyonları interface üzerinden keşfediyor) yeni bir migration gerekmedi.
 
 ---
 
@@ -397,7 +397,7 @@ Orijinal bulgu `/reset-password`'un `auth-fixed` rate limiter'dan muaf olduğunu
 //                                                ^^^^^^ "WithThreadId" olmalı
 ```
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (typo giderilip `Serilog.Enrichers.Thread` paket referansı eklenecek — önceden zaten yok, eklenmezse enricher sessizce no-op kalır).
+**DURUM:** ✅ Düzeltildi — typo giderildi, `Serilog.Enrichers.Thread` paket referansı eklendi. Denetim sırasında `WithMachineName`'in de aynı şekilde bozuk olduğu ortaya çıktı — `Serilog.Enrichers.Environment` paketi de hiç referans edilmiyordu, yani bu enricher da sessizce no-op kalıyordu; o paket referansı da eklendi.
 
 ### 🟡 MEDIUM — OpenTelemetry Sadece Console'a Yazıyor
 
@@ -462,9 +462,9 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 | 🔴 P0 | Interface+Implementation tek dosya | SOC ihlali | 🔲 Bu oturumda düzeltilecek |
 | 🟠 P1 | ResetPassword expiry kontrolü yok + kod tekrar kullanılabiliyor | Güvenlik açığı | ✅ Düzeltildi |
 | 🟠 P1 | removeResult → addResult bug | Yanlış hata mesajı | ✅ Düzeltildi |
-| 🟡 P2 | WithTreadId typo | Thread ID loglanmıyor | 🔲 Bu oturumda düzeltilecek |
-| 🟡 P2 | `cancelllationToken` typo (8 yer) | Kod kalitesi | 🔲 Bu oturumda düzeltilecek |
-| 🟡 P2 | `OrdertemConfiguration` typo + yanlış dosya | Kod kalitesi | 🔲 Bu oturumda düzeltilecek |
+| 🟡 P2 | WithTreadId typo (+ WithMachineName da aynı sebeple bozuktu) | Thread ID / MachineName loglanmıyor | ✅ Düzeltildi |
+| 🟡 P2 | `cancelllationToken` typo (8 yer) | Kod kalitesi | ✅ Düzeltildi |
+| 🟡 P2 | `OrdertemConfiguration` typo + yanlış dosya | Kod kalitesi | ✅ Düzeltildi |
 | 🟠 P1 | Static cache token | Thread safety / test izolasyon | 🔲 Açık (Faz 2) |
 | 🟠 P1 | SearchTerm çalışmıyor | Feature eksik | 🔲 Açık (Faz 2) |
 | 🟠 P1 | RefreshToken.Token index yok | ~~Table scan~~ | ✅ Zaten çözülmüş (doküman güncel değildi) |
@@ -499,9 +499,9 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 - [ ] `IAuthService.cs` → dosya ayırma
 - [x] `ResetPassword` OTP expiry kontrolü ekle + kullanılan kodu temizle
 - [x] `removeResult.Errors` → `addResult.Errors` bug düzelt
-- [ ] `WithTreadId` → `WithThreadId` Serilog düzelt (+ paket referansı ekle)
-- [ ] `OrdertemConfiguration` → `OrderItemConfiguration` rename + kendi dosyasına taşı
-- [ ] `cancelllationToken` typo'larını düzelt
+- [x] `WithTreadId` → `WithThreadId` Serilog düzelt (+ paket referansı ekle)
+- [x] `OrdertemConfiguration` → `OrderItemConfiguration` rename + kendi dosyasına taşı
+- [x] `cancelllationToken` typo'larını düzelt
 - [ ] Secrets'ı `appsettings.json`'dan çıkar (ileriye dönük — git geçmişi temizlenmeyecek)
 
 **Beklenen Kazanım:** Proje derlenir hale gelecek, permission sistemi gerçekten çalışacak, güvenlik açıkları ve critical buglar kapanacak.
