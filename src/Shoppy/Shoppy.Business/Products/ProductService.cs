@@ -160,6 +160,6 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
 
         InvalidateCache();
 
-        return "Product not found.";
+        return "Product deleted.";
     }
 }
