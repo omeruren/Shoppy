@@ -1,4 +1,5 @@
-﻿using Carter;
+﻿using Asp.Versioning;
+using Carter;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Users;
 using Shoppy.Business.Users.DataTransferObjects;
@@ -9,12 +10,16 @@ public class UserModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder
-            .MapGroup("/users")
+        var apiVersionSet = builder.NewApiVersionSet()
+              .HasApiVersion(new ApiVersion(1, 0))
+              .ReportApiVersions()
+              .Build();
+
+        var app = builder.MapGroup("/api/v{version:apiVersion}/users")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Users")
             .RequireRateLimiting("fixed");
-
-
 
         // GET ALL USERS
 
@@ -29,7 +34,7 @@ public class UserModule : ICarterModule
             var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
-        });
+        }).RequireRateLimiting("Admin");
 
 
         // GET USER BY ID
@@ -42,7 +47,7 @@ public class UserModule : ICarterModule
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
-        });
+        }).RequireRateLimiting("Admin");
 
 
         // CREATE USER
@@ -55,7 +60,7 @@ public class UserModule : ICarterModule
             var result = await _service.CreateAsync(request, cancellationToken);
 
             return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result);
-        });
+        }).RequireRateLimiting("Admin");
 
         // UPDATE USER
 
@@ -67,7 +72,7 @@ public class UserModule : ICarterModule
             var result = await _service.UpdateAsync(request, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
-        });
+        }).RequireRateLimiting("Admin");
 
 
         // DELETE USER
@@ -80,7 +85,7 @@ public class UserModule : ICarterModule
             var result = await _service.DeleteAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
-        });
+        }).RequireRateLimiting("Admin");
 
     }
 }

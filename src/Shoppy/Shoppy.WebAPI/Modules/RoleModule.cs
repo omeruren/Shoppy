@@ -1,4 +1,5 @@
-﻿using Carter;
+﻿using Asp.Versioning;
+using Carter;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Roles;
 using Shoppy.Business.Roles.DataTransferObjects;
@@ -10,12 +11,18 @@ public sealed class RoleModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder
-            .MapGroup("/roles")
-            .WithTags("Roles")
-            .RequireAuthorization()
-            .RequireRateLimiting("fixed");
+        var apiVersionSet = builder.NewApiVersionSet()
+          .HasApiVersion(new ApiVersion(1, 0))
+          .ReportApiVersions()
+          .Build();
 
+        var app = builder
+            .MapGroup("/api/v{version:apiVersion}/roles")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(new ApiVersion(1, 0))
+            .WithTags("Roles")
+            .RequireRateLimiting("fixed")
+            .RequireAuthorization();
 
         // GET ALL ROLES
         app.MapGet(string.Empty, async (

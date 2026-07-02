@@ -1,4 +1,5 @@
-﻿using Carter;
+﻿using Asp.Versioning;
+using Carter;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories;
 using Shoppy.Business.Categories.DataTransferObjects;
@@ -11,11 +12,18 @@ public sealed class CategoryModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
+        var apiVersionSet = builder.NewApiVersionSet()
+           .HasApiVersion(new ApiVersion(1, 0))
+           .ReportApiVersions()
+           .Build();
+
         var app = builder
-            .MapGroup("/categories")
+            .MapGroup("/api/v{version:apiVersion}/categories")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Categories")
-            .RequireAuthorization("Admin")
-            .RequireRateLimiting("fixed");
+            .RequireRateLimiting("fixed")
+            .RequireAuthorization("Admin");
 
         // GET ALL CATEGORIES
 

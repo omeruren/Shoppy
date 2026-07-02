@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Carter;
 using Microsoft.AspNetCore.RateLimiting;
 using Scalar.AspNetCore;
@@ -25,8 +26,26 @@ builder.Services.AddDataAccess(builder.Configuration).AddBusiness();
 // Carter
 builder.Services.AddCarter();
 
+
+// API VERSIONING
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = ApiVersionReader.Combine(
+        new UrlSegmentApiVersionReader(),
+        new HeaderApiVersionReader("api-version"));
+})
+.AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
+
 // OPEN API
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi("v1");
 
 // CUSTOM EXCEPTION HANDLER
 builder.Services.AddExceptionHandler<ExceptionHandler>().AddProblemDetails();
@@ -88,7 +107,7 @@ app.UseMiddleware<CorrelationMiddleware>();
 // serilog request logging
 app.UseSerilogRequestLogging();
 
-app.UseExceptionHandler();
+
 
 app.MapOpenApi();
 
@@ -100,14 +119,17 @@ app.UseCors(c => c
                                 "http://localhost:5226"
                                 )
                     .AllowAnyHeader()
+                    .AllowCredentials()
                     .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
 );
 
-app.UseRateLimiter();
-
-
 
 app.MapScalarApiReference();
+
+app.UseResponseCompression();
+
+app.UseExceptionHandler();
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

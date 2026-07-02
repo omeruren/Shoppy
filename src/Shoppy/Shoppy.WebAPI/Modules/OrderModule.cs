@@ -1,4 +1,5 @@
-﻿using Carter;
+﻿using Asp.Versioning;
+using Carter;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Orders;
@@ -11,11 +12,18 @@ public class OrderModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder
-            .MapGroup("/orders")
-            .WithTags("Orders")
-            .RequireRateLimiting("fixed");
+        var apiVersionSet = builder.NewApiVersionSet()
+            .HasApiVersion(new ApiVersion(1, 0))
+            .ReportApiVersions()
+            .Build();
 
+        var app = builder
+            .MapGroup("/api/v{version:apiVersion}/orders")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(new ApiVersion(1, 0))
+            .WithTags("Orders")
+            .RequireRateLimiting("fixed")
+            .RequireAuthorization();
 
         // GET ALL ORDERS
 

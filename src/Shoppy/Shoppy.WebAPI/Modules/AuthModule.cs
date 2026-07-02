@@ -1,4 +1,5 @@
-﻿using Carter;
+﻿using Asp.Versioning;
+using Carter;
 using Shoppy.Business.Auth;
 using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.WebAPI.Filters;
@@ -9,8 +10,15 @@ public sealed class AuthModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder builder)
     {
-        var app = builder
-            .MapGroup("/auth")
+
+        var apiVersionSet = builder.NewApiVersionSet()
+                    .HasApiVersion(new ApiVersion(1, 0))
+                    .ReportApiVersions()
+                    .Build();
+
+        var app = builder.MapGroup("/api/v{version:apiVersion}/auth")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(new ApiVersion(1, 0))
             .WithTags("Auth")
             .RequireRateLimiting("auth-fixed");
 
