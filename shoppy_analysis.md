@@ -337,7 +337,7 @@ if (string.IsNullOrEmpty(user.PasswordResetCode) || user.PasswordResetCode != re
 // ← PasswordResetCodeExpires < DateTimeOffset.UtcNow kontrolü YOK!
 ```
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`PasswordResetCodeExpires` kontrolü eklenecek; başarılı reset sonrası kod `ClearPasswordResetCode()` ile temizlenecek — önceden başarılı bir reset'ten sonra bile kod süresi dolana kadar tekrar kullanılabilir durumda).
+**DURUM:** ✅ Düzeltildi — `PasswordResetCodeExpires` kontrolü eklendi; ayrıca başarılı reset sonrası kod artık `ClearPasswordResetCode()` ile temizleniyor (önceden başarılı bir reset'ten sonra bile kod süresi dolana kadar tekrar kullanılabilir durumdaydı).
 
 ---
 
@@ -350,7 +350,7 @@ if (!addResult.Succeeded)
     //                               ^^^^^^^^^^^ removeResult olmamalı, addResult olmalı!
 ```
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`addResult.Errors` kullanılacak).
+**DURUM:** ✅ Düzeltildi — `addResult.Errors` kullanılıyor.
 
 ---
 
@@ -460,8 +460,8 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 | 🔴 P0 | Secrets git'te | Güvenlik açığı | 🔲 Bu oturumda ileriye dönük düzeltilecek (geçmiş temiz kalacak) |
 | 🔴 P0 | `ProductService.DeleteAsync` bug | Yanlış mesaj | ✅ Düzeltildi |
 | 🔴 P0 | Interface+Implementation tek dosya | SOC ihlali | 🔲 Bu oturumda düzeltilecek |
-| 🟠 P1 | ResetPassword expiry kontrolü yok + kod tekrar kullanılabiliyor | Güvenlik açığı | 🔲 Bu oturumda düzeltilecek |
-| 🟠 P1 | removeResult → addResult bug | Yanlış hata mesajı | 🔲 Bu oturumda düzeltilecek |
+| 🟠 P1 | ResetPassword expiry kontrolü yok + kod tekrar kullanılabiliyor | Güvenlik açığı | ✅ Düzeltildi |
+| 🟠 P1 | removeResult → addResult bug | Yanlış hata mesajı | ✅ Düzeltildi |
 | 🟡 P2 | WithTreadId typo | Thread ID loglanmıyor | 🔲 Bu oturumda düzeltilecek |
 | 🟡 P2 | `cancelllationToken` typo (8 yer) | Kod kalitesi | 🔲 Bu oturumda düzeltilecek |
 | 🟡 P2 | `OrdertemConfiguration` typo + yanlış dosya | Kod kalitesi | 🔲 Bu oturumda düzeltilecek |
@@ -497,8 +497,8 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 
 - [x] `ProductService.DeleteAsync` bug düzelt → `"Product deleted."`
 - [ ] `IAuthService.cs` → dosya ayırma
-- [ ] `ResetPassword` OTP expiry kontrolü ekle + kullanılan kodu temizle
-- [ ] `removeResult.Errors` → `addResult.Errors` bug düzelt
+- [x] `ResetPassword` OTP expiry kontrolü ekle + kullanılan kodu temizle
+- [x] `removeResult.Errors` → `addResult.Errors` bug düzelt
 - [ ] `WithTreadId` → `WithThreadId` Serilog düzelt (+ paket referansı ekle)
 - [ ] `OrdertemConfiguration` → `OrderItemConfiguration` rename + kendi dosyasına taşı
 - [ ] `cancelllationToken` typo'larını düzelt
