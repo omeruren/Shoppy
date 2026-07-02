@@ -1,3 +1,3 @@
 ﻿namespace Shoppy.Business.Categories.DataTransferObjects;
 
-public sealed record CategoryUpdateDto(Guid Id, string Name);
+public sealed record CategoryUpdateDto(Guid Id, string Name, byte[]? RowVersion = null);

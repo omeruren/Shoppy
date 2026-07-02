@@ -1,3 +1,3 @@
 ﻿namespace Shoppy.Business.Roles.DataTransferObjects;
 
-public sealed record RoleUpdateDto(Guid Id, string Name);
+public sealed record RoleUpdateDto(Guid Id, string Name, byte[]? RowVersion = null);

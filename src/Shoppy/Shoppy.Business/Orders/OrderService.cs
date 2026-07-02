@@ -101,6 +101,10 @@ public sealed class OrderService(ApplicationDbContext _context) : IOrderService
 
         request.Adapt(order);
 
+        if (request.RowVersion is not null)
+            _context.Entry(order).Property(x => x.RowVersion).OriginalValue = request.RowVersion;
+
+
         _orders.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
 

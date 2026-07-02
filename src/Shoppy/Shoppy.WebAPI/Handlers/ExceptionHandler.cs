@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Handlers;
@@ -43,7 +44,8 @@ public class ExceptionHandler(ILogger<ExceptionHandler> _logger) : IExceptionHan
         {
             ArgumentException => (StatusCodes.Status400BadRequest, "Bad Request"),
             UnauthorizedAccessException => (StatusCodes.Status403Forbidden, "Forbidden"),
-            KeyNotFoundException => (StatusCodes.Status409Conflict, "Concurrency Conflict"),
+            KeyNotFoundException => (StatusCodes.Status404NotFound, "Not Found"),
+            DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Concurrency Conflict"),
             OperationCanceledException => (499, "Client Closed Request"),
             _ => (StatusCodes.Status500InternalServerError, "Internal Server Error")
         };

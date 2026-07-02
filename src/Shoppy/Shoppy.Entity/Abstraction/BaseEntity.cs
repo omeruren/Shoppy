@@ -1,4 +1,6 @@
-﻿namespace Shoppy.Entity.Abstraction;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Shoppy.Entity.Abstraction;
 
 public abstract class BaseEntity
 {
@@ -18,4 +20,7 @@ public abstract class BaseEntity
     public DateTimeOffset? DeletedAt { get; set; }
     public Guid? DeletedBy { get; set; }
     public bool IsDeleted { get; set; }
+
+    [Timestamp]
+    public byte[] RowVersion { get; set; } = default!;
 }

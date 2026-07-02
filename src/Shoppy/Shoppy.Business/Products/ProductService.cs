@@ -101,6 +101,10 @@ public sealed class ProductService(ApplicationDbContext _context) : IProductServ
 
         request.Adapt(product);
 
+        if (request.RowVersion is not null)
+            _context.Entry(product).Property(x => x.RowVersion).OriginalValue = request.RowVersion;
+
+
         _products.Update(product);
         await _context.SaveChangesAsync(cancellationToken);
 

@@ -89,6 +89,9 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
 
         request.Adapt(category);
 
+        if (request.RowVersion is not null)
+            _context.Entry(category).Property(x => x.RowVersion).OriginalValue = request.RowVersion;
+
         _categories.Update(category);
         await _context.SaveChangesAsync(cancellationToken);
         return "Category updated.";

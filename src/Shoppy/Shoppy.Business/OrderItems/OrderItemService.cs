@@ -80,6 +80,11 @@ public class OrderItemService(ApplicationDbContext _context) : IOrderItemService
         if (orderItem is null)
             return Result<string>.Failure(404, "Order item not found.");
 
+        request.Adapt(orderItem);
+
+        if (request.RowVersion is not null)
+            _context.Entry(orderItem).Property(x => x.RowVersion).OriginalValue = request.RowVersion;
+
         _orderItems.Update(orderItem);
         await _context.SaveChangesAsync(cancellationToken);
 
