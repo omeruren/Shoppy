@@ -32,11 +32,11 @@ public class OrderModule : ICarterModule
             int pageNumber = 1,
             int pageSize = 10,
             string searchTerm = "",
-            CancellationToken cancelllationToken = default) =>
+            CancellationToken cancellationToken = default) =>
         {
             var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm);
 
-            var result = await _service.GetAllAsync(paginationRequest, cancelllationToken);
+            var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
 
@@ -49,9 +49,9 @@ public class OrderModule : ICarterModule
         app.MapGet("{id}", async (
             IOrderService _service,
             Guid id,
-            CancellationToken cancelllationToken) =>
+            CancellationToken cancellationToken) =>
         {
-            var result = await _service.GetByIdAsync(id, cancelllationToken);
+            var result = await _service.GetByIdAsync(id, cancellationToken);
 
             return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
 
