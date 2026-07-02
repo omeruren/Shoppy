@@ -1,5 +1,7 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems.DataTransferObjects;
@@ -8,29 +10,58 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.OrderItems;
 
-public class OrderItemService(ApplicationDbContext _context) : IOrderItemService
+public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache) : IOrderItemService
 {
+    private const string CacheKeyPrefix = "orderItems";
+
     private readonly DbSet<OrderItem> _orderItems = _context.Set<OrderItem>();
+
+    // Cache invalidation via CancellationTokenSource
+    private static CancellationTokenSource _cacheResetToken = new();
+
+    private static void InvalidateCache()
+    {
+        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
+        oldToken.Cancel();
+        oldToken.Dispose();
+    }
+
+    private static string BuildCacheKey(PaginationRequestDto request)
+        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
+
 
     // GET ALL ITEMS
 
     public async Task<Result<PaginationResultDto<OrderItemResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        var orderItems = await _orderItems.AsNoTracking().Include(i => i.Product).Select(i => new OrderItemResultDto
+        var cacheKey = BuildCacheKey(request);
+
+        var orderItems = _cache.Get<PaginationResultDto<OrderItemResultDto>>(cacheKey);
+
+        if (orderItems is null)
         {
-            Id = i.Id,
-            ProductId = i.ProductId,
-            Quantity = i.Quantity,
 
-            CreatedAt = i.CreatedAt,
-            UpdatedAt = i.UpdatedAt,
+            orderItems = await _orderItems.AsNoTracking().Include(i => i.Product).Select(i => new OrderItemResultDto
+            {
+                Id = i.Id,
+                ProductId = i.ProductId,
+                Quantity = i.Quantity,
 
-            IsDeleted = i.IsDeleted,
-            DeletedAt = i.DeletedAt
+                CreatedAt = i.CreatedAt,
+                UpdatedAt = i.UpdatedAt,
 
-        })
-            .WithPagination(request, cancellationToken);
+                IsDeleted = i.IsDeleted,
+                DeletedAt = i.DeletedAt
 
+            })
+               .WithPagination(request, cancellationToken);
+
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
+
+            _cache.Set(cacheKey, orderItems, cacheOptions);
+        }
         return orderItems;
     }
 
@@ -67,6 +98,8 @@ public class OrderItemService(ApplicationDbContext _context) : IOrderItemService
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        InvalidateCache();
+
         return "Order item created.";
     }
 
@@ -88,6 +121,8 @@ public class OrderItemService(ApplicationDbContext _context) : IOrderItemService
         _orderItems.Update(orderItem);
         await _context.SaveChangesAsync(cancellationToken);
 
+        InvalidateCache();
+
         return "Order item updated.";
     }
 
@@ -101,6 +136,8 @@ public class OrderItemService(ApplicationDbContext _context) : IOrderItemService
 
         _orderItems.Remove(orderItem);
         await _context.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
 
         return "Order item deleted.";
     }

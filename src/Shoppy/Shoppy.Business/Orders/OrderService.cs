@@ -1,5 +1,7 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems.DataTransferObjects;
@@ -9,42 +11,77 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Orders;
 
-public sealed class OrderService(ApplicationDbContext _context) : IOrderService
+public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _cache) : IOrderService
 {
+    private const string CacheKeyPrefix = "orders";
+
+
     private readonly DbSet<Order> _orders = _context.Set<Order>();
+
+    private static CancellationTokenSource _cacheResetToken = new();
+
+    private static void InvalidateCache()
+    {
+        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
+        oldToken.Cancel();
+        oldToken.Dispose();
+    }
+
+
+    private static string BuildCacheKey(PaginationRequestDto request)
+        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
+
 
     // GET ALL ORDERS
 
     public async Task<Result<PaginationResultDto<OrderResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        PaginationResultDto<OrderResultDto> orders = await _orders
-            .AsNoTracking()
-            .Include(o => o.Items)
-            .Select(p => new OrderResultDto
-            {
-                Id = p.Id,
-                OrderDate = p.OrderDate,
-                Items = p.Items.Select(i => new OrderItemResultDto
-                {
-                    Id = i.Id,
-                    ProductId = i.ProductId,
-                    Quantity = i.Quantity,
+        string cacheKey = BuildCacheKey(request);
 
-                    CreatedAt = i.CreatedAt,
-                    UpdatedAt = i.UpdatedAt,
+        var orders = _cache.Get<PaginationResultDto<OrderResultDto>>(cacheKey);
 
-                    IsDeleted = i.IsDeleted,
-                    DeletedAt = i.DeletedAt
-                }).ToList(),
+        if (orders is null)
+        {
 
-                CreatedAt = p.CreatedAt,
-                UpdatedAt = p.UpdatedAt,
-                IsDeleted = p.IsDeleted,
-                DeletedAt = p.DeletedAt
+            orders = await _orders
+               .AsNoTracking()
+               .Include(o => o.Items)
+               .Select(p => new OrderResultDto
+               {
+                   Id = p.Id,
+                   OrderDate = p.OrderDate,
+                   Items = p.Items.Select(i => new OrderItemResultDto
+                   {
+                       Id = i.Id,
+                       ProductId = i.ProductId,
+                       Quantity = i.Quantity,
 
-            })
-            .WithPagination(request, cancellationToken);
+                       CreatedAt = i.CreatedAt,
+                       UpdatedAt = i.UpdatedAt,
 
+                       IsDeleted = i.IsDeleted,
+                       DeletedAt = i.DeletedAt
+                   }).ToList(),
+
+                   CreatedAt = p.CreatedAt,
+                   CreatedBy = p.CreatedBy,
+
+                   UpdatedAt = p.UpdatedAt,
+                   UpdatedBy = p.UpdatedBy,
+
+                   IsDeleted = p.IsDeleted,
+                   DeletedAt = p.DeletedAt,
+                   DeletedBy = p.DeletedBy
+
+               })
+               .WithPagination(request, cancellationToken);
+
+            var cacheOptions = new MemoryCacheEntryOptions()
+               .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+               .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
+
+            _cache.Set(cacheKey, orders, cacheOptions);
+        }
         return orders;
     }
 
@@ -87,6 +124,8 @@ public sealed class OrderService(ApplicationDbContext _context) : IOrderService
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        InvalidateCache();
+
         return "Order created.";
     }
 
@@ -108,6 +147,8 @@ public sealed class OrderService(ApplicationDbContext _context) : IOrderService
         _orders.Update(order);
         await _context.SaveChangesAsync(cancellationToken);
 
+        InvalidateCache();
+
         return "Order updated.";
     }
 
@@ -123,6 +164,8 @@ public sealed class OrderService(ApplicationDbContext _context) : IOrderService
 
         _orders.Remove(order);
         await _context.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
 
         return "Order deleted.";
     }

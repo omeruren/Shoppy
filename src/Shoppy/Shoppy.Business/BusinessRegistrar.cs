@@ -16,6 +16,9 @@ public static class BusinessRegistrar
 {
     public static IServiceCollection AddBusiness(this IServiceCollection services)
     {
+        // In Memory Cache
+        services.AddMemoryCache();
+
         // Service registrations
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IProductService, ProductService>();

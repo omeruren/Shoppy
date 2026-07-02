@@ -1,5 +1,6 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Roles.DataTransferObjects;
 using Shoppy.DataAccess.Context;
@@ -7,33 +8,42 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Roles;
 
-public sealed class RoleService(ApplicationDbContext _context) : IRoleService
+public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cache) : IRoleService
 {
+    private const string CacheKeyPrefix = "roles";
     private readonly DbSet<Role> _roles = _context.Set<Role>();
 
 
     // GET ALL ROLES
     public async Task<Result<List<Role>>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var roles = await _roles
-            .AsNoTracking()
-            .OrderBy(r => r.Name)
-            .Select(r => new Role
-            {
-                Id = r.Id,
-                Name = r.Name,
+        var roles = _cache.Get<List<Role>>(CacheKeyPrefix);
 
-                CreatedAt = r.CreatedAt,
-                CreatedBy = r.CreatedBy,
+        if (roles is null)
+        {
+            roles = await _roles
+               .AsNoTracking()
+               .OrderBy(r => r.Name)
+               .Select(r => new Role
+               {
+                   Id = r.Id,
+                   Name = r.Name,
 
-                UpdatedAt = r.UpdatedAt,
-                UpdatedBy = r.UpdatedBy,
+                   CreatedAt = r.CreatedAt,
+                   CreatedBy = r.CreatedBy,
 
-                IsDeleted = r.IsDeleted,
-                DeletedBy = r.DeletedBy,
-                DeletedAt = r.DeletedAt,
-            })
-            .ToListAsync(cancellationToken);
+                   UpdatedAt = r.UpdatedAt,
+                   UpdatedBy = r.UpdatedBy,
+
+                   IsDeleted = r.IsDeleted,
+                   DeletedBy = r.DeletedBy,
+                   DeletedAt = r.DeletedAt,
+               })
+               .ToListAsync(cancellationToken);
+
+            _cache.Set(CacheKeyPrefix, roles, TimeSpan.FromMinutes(5));
+
+        }
 
         return roles;
     }
@@ -65,6 +75,8 @@ public sealed class RoleService(ApplicationDbContext _context) : IRoleService
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        _cache.Remove(CacheKeyPrefix);
+
         return "Role created.";
     }
 
@@ -95,6 +107,7 @@ public sealed class RoleService(ApplicationDbContext _context) : IRoleService
             await _context.SaveChangesAsync(cancellationToken);
 
         }
+        _cache.Remove(CacheKeyPrefix);
 
         return "Role updated.";
     }
@@ -111,6 +124,8 @@ public sealed class RoleService(ApplicationDbContext _context) : IRoleService
         _roles.Remove(role);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        _cache.Remove(CacheKeyPrefix);
 
         return "Role deleted.";
     }

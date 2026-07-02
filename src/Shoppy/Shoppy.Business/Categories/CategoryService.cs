@@ -1,5 +1,7 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories.DataTransferObjects;
 using Shoppy.Business.Extensions;
@@ -8,34 +10,63 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Categories;
 
-public sealed class CategoryService(ApplicationDbContext _context) : ICategoryService
+public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache _cache) : ICategoryService
 {
+    private const string CacheKeyPrefix = "categories";
 
     private readonly DbSet<Category> _categories = _context.Set<Category>();
+
+    // Cache invalidation via CancellationTokenSource
+    private static CancellationTokenSource _cacheResetToken = new();
+
+    private static void InvalidateCache()
+    {
+        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
+        oldToken.Cancel();
+        oldToken.Dispose();
+    }
+
+    private static string BuildCacheKey(PaginationRequestDto request)
+        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
 
     // Get All Categories
     public async Task<Result<PaginationResultDto<CategoryResultDto>>> GetallAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        PaginationResultDto<CategoryResultDto> categories = await _categories
-            .AsNoTracking()
-            .Select(p => new CategoryResultDto
-            {
-                Id = p.Id,
-                Name = p.Name,
+        var cacheKey = BuildCacheKey(request);
 
-                CreatedAt = p.CreatedAt,
-                CreatedBy = p.CreatedBy,
+        var categories = _cache.Get<PaginationResultDto<CategoryResultDto>>(cacheKey);
 
-                UpdatedAt = p.UpdatedAt,
-                UpdatedBy = p.UpdatedBy,
+        if (categories is null)
+        {
 
-                IsDeleted = p.IsDeleted,
-                DeletedAt = p.DeletedAt,
-                DeletedBy = p.DeletedBy
 
-            })
-            .OrderBy(c => c.Name)
-            .WithPagination(request, cancellationToken);
+            categories = await _categories
+                .AsNoTracking()
+                .Select(p => new CategoryResultDto
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+
+                    CreatedAt = p.CreatedAt,
+                    CreatedBy = p.CreatedBy,
+
+                    UpdatedAt = p.UpdatedAt,
+                    UpdatedBy = p.UpdatedBy,
+
+                    IsDeleted = p.IsDeleted,
+                    DeletedAt = p.DeletedAt,
+                    DeletedBy = p.DeletedBy
+
+                })
+                .OrderBy(c => c.Name)
+                .WithPagination(request, cancellationToken);
+
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+                .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
+
+            _cache.Set(cacheKey, categories, cacheOptions);
+        }
 
         return categories;
     }
@@ -68,6 +99,8 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
         _categories.Add(category);
         await _context.SaveChangesAsync(cancellationToken);
 
+        InvalidateCache();
+
         return "Category created.";
     }
 
@@ -94,6 +127,9 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
 
         _categories.Update(category);
         await _context.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
+
         return "Category updated.";
     }
 
@@ -109,6 +145,8 @@ public sealed class CategoryService(ApplicationDbContext _context) : ICategorySe
         _categories.Remove(category);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
 
         return "Category deleted.";
     }

@@ -1,5 +1,7 @@
 ﻿using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Products.DataTransferObjects;
@@ -8,33 +10,60 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Products;
 
-public sealed class ProductService(ApplicationDbContext _context) : IProductService
+public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _cache) : IProductService
 {
+    private const string CacheKeyPrefix = "products";
     private readonly DbSet<Product> _products = _context.Set<Product>();
 
+
+    private static CancellationTokenSource _cacheResetToken = new();
+
+    private static void InvalidateCache()
+    {
+        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
+        oldToken.Cancel();
+        oldToken.Dispose();
+    }
+
+    private static string BuildCacheKey(PaginationRequestDto request)
+        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
 
     // Get All Products
     public async Task<Result<PaginationResultDto<ProductResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        return await _products
-            .AsNoTracking()
-            .LeftJoin(_context.Categories, p => p.CategoryId, p => p.Id, (product, category) => new { product, category })
-            .Select(s => new ProductResultDto
-            {
-                Id = s.product.Id,
-                Name = s.product.Name,
-                Description = s.product.Description,
-                CategoryId = s.product.CategoryId,
-                CategoryName = s.category!.Name,
+        string cacheKey = BuildCacheKey(request);
+        var products = _cache.Get<PaginationResultDto<ProductResultDto>>(cacheKey);
 
-                CreatedAt = s.product.CreatedAt,
-                UpdatedAt = s.product.UpdatedAt,
-                DeletedAt = s.product.DeletedAt,
-                IsDeleted = s.product.IsDeleted
-            })
-            .OrderBy(p => p.Name)
-            .WithPagination(request, cancellationToken);
+        if (products is null)
+        {
 
+            products = await _products
+                .AsNoTracking()
+                .LeftJoin(_context.Categories, p => p.CategoryId, p => p.Id, (product, category) => new { product, category })
+                .Select(s => new ProductResultDto
+                {
+                    Id = s.product.Id,
+                    Name = s.product.Name,
+                    Description = s.product.Description,
+                    CategoryId = s.product.CategoryId,
+                    CategoryName = s.category!.Name,
+
+                    CreatedAt = s.product.CreatedAt,
+                    UpdatedAt = s.product.UpdatedAt,
+                    DeletedAt = s.product.DeletedAt,
+                    IsDeleted = s.product.IsDeleted
+                })
+                .OrderBy(p => p.Name)
+                .WithPagination(request, cancellationToken);
+
+            var cacheOptions = new MemoryCacheEntryOptions()
+              .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
+              .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
+
+            _cache.Set(cacheKey, products, cacheOptions);
+        }
+
+        return products;
     }
 
     // Get Product By Id
@@ -79,6 +108,9 @@ public sealed class ProductService(ApplicationDbContext _context) : IProductServ
         _products.Add(product);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        InvalidateCache();
+
         return "Product Created.";
     }
 
@@ -108,6 +140,8 @@ public sealed class ProductService(ApplicationDbContext _context) : IProductServ
         _products.Update(product);
         await _context.SaveChangesAsync(cancellationToken);
 
+        InvalidateCache();
+
         return "Product updated.";
     }
 
@@ -122,6 +156,9 @@ public sealed class ProductService(ApplicationDbContext _context) : IProductServ
         _products.Remove(product);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+
+        InvalidateCache();
 
         return "Product not found.";
     }
