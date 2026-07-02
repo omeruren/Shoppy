@@ -17,7 +17,19 @@ public static class DataAccessRegistrar
 
         services.AddIdentityCore<User>(opt =>
         {
-            opt.Password.RequireNonAlphanumeric = false;
+            // Password Policy
+            opt.Password.RequiredLength = 8;
+            opt.Password.RequireDigit = true;
+            opt.Password.RequireLowercase = true;
+            opt.Password.RequireUppercase = true;
+            opt.Password.RequireNonAlphanumeric = true;
+            opt.Password.RequiredUniqueChars = 3;
+
+            // Account lockout
+            opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+            opt.Lockout.MaxFailedAccessAttempts = 5;
+            opt.Lockout.AllowedForNewUsers = true;
+
         }).AddEntityFrameworkStores<ApplicationDbContext>();
 
         return services;

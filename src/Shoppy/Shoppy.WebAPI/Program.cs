@@ -1,6 +1,9 @@
 using Asp.Versioning;
 using Carter;
 using Microsoft.AspNetCore.RateLimiting;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 using Serilog;
 using Shoppy.Business;
@@ -8,6 +11,7 @@ using Shoppy.Business.Options;
 using Shoppy.DataAccess;
 using Shoppy.WebAPI.Handlers;
 using Shoppy.WebAPI.MiddleWares;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -98,6 +102,25 @@ builder.Services.AddAuthorization(conf =>
     conf.AddPolicy("Admin", policy => policy.RequireRole("Admin"));
 });
 
+// OpenTelemetry Configuration
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("Shoppy.WebAPI"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation()
+        .AddConsoleExporter())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter());
+
+// Health Checks
+builder.Services.AddHealthChecks().AddSqlServer(
+    builder.Configuration.GetConnectionString("SqlServer")!,
+    name: "sqlserver",
+    tags: ["db", "sql"]);
+
 var app = builder.Build();
 
 
@@ -134,6 +157,30 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+
+// Health Check Endpoint
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds + "ms"
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds + "ms"
+        };
+        await context.Response.WriteAsJsonAsync(result, new JsonSerializerOptions { WriteIndented = true });
+    }
+});
+
 app.MapCarter();
 
 app.Run();
+public partial class Program { }

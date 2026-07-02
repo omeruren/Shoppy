@@ -71,6 +71,11 @@ public sealed class ApplicationDbContext : IdentityDbContext<User, IdentityRole<
 
         foreach (var entry in entries)
         {
+            if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+            {
+                if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                    entry.Property(p => p.RowVersion).CurrentValue = Guid.NewGuid().ToByteArray();
+            }
             if (entry.State == EntityState.Added)
             {
                 entry.Property(x => x.CreatedAt).CurrentValue = DateTimeOffset.UtcNow;

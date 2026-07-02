@@ -8,9 +8,11 @@ public sealed class OrderItemCreateValidator : AbstractValidator<OrderItemCreate
     public OrderItemCreateValidator()
     {
         RuleFor(x => x.ProductId)
-            .NotEmpty();
+           .NotEmpty()
+           .WithMessage("Product is required.");
 
         RuleFor(x => x.Quantity)
-            .GreaterThan(0);
+            .GreaterThan(0)
+            .WithMessage("Quantity must be greater than zero.");
     }
 }

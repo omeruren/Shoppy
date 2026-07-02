@@ -10,9 +10,7 @@ public sealed class OrderCreateValidator : AbstractValidator<OrderCreateDto>
     {
 
         RuleFor(x => x.Items)
-            .NotNull()
-            .WithMessage("Items cannot be null.")
-            .Must(x => x.Any())
+            .NotEmpty()
             .WithMessage("Order must contain at least one item.");
 
         RuleForEach(x => x.Items)

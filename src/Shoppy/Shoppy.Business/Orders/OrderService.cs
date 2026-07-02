@@ -169,8 +169,4 @@ public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _ca
 
         return "Order deleted.";
     }
-
-
-
-
 }

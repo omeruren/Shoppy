@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="../../test/Shoppy.IntegrationTests/Shoppy.IntegrationTests.csproj" Id="dbe1d9ed-7c86-442c-9355-47a1ee34d7db" />
+  <Project Path="../../test/Shoppy.UnitTests/Shoppy.UnitTests.csproj" Id="92e2ea0f-e65d-432b-a390-3b43e38eaeff" />
   <Project Path="Shoppy.Business/Shoppy.Business.csproj" />
   <Project Path="Shoppy.DataAccess/Shoppy.DataAccess.csproj" />
   <Project Path="Shoppy.Entity/Shoppy.Entity.csproj" />
