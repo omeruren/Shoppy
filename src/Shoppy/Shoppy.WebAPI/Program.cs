@@ -32,6 +32,9 @@ builder.Services.AddOpenApi();
 builder.Services.AddExceptionHandler<ExceptionHandler>().AddProblemDetails();
 
 
+// CORS Policy
+builder.Services.AddCors();
+
 // RESPONSE COMPRESSION
 builder.Services.AddResponseCompression(x => x.EnableForHttps = true);
 
@@ -88,6 +91,17 @@ app.UseSerilogRequestLogging();
 app.UseExceptionHandler();
 
 app.MapOpenApi();
+
+app.UseCors(c => c
+                    .AllowAnyMethod()
+                    .WithOrigins(
+                                "http://localhost:3000",
+                                "http://localhost:5176",
+                                "http://localhost:5226"
+                                )
+                    .AllowAnyHeader()
+                    .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
+);
 
 app.UseRateLimiter();
 
