@@ -172,7 +172,7 @@ public async Task<Result<string>> DeleteAsync(Guid id, CancellationToken cancell
 }
 ```
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`return "Product deleted.";`).
+**DURUM:** ✅ Düzeltildi — `return "Product deleted.";`
 
 ---
 
@@ -458,7 +458,7 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 | 🔴 P0 | UserModule: `RequireRateLimiting("Admin")` yetkilendirme yerine kullanılmış | Admin endpoint'leri açık + runtime exception | ✅ Düzeltildi |
 | 🟠 P0 | RoleModule: policy'siz `RequireAuthorization()` | Herhangi bir kullanıcı rol yönetebilir | ✅ Düzeltildi |
 | 🔴 P0 | Secrets git'te | Güvenlik açığı | 🔲 Bu oturumda ileriye dönük düzeltilecek (geçmiş temiz kalacak) |
-| 🔴 P0 | `ProductService.DeleteAsync` bug | Yanlış mesaj | 🔲 Bu oturumda düzeltilecek |
+| 🔴 P0 | `ProductService.DeleteAsync` bug | Yanlış mesaj | ✅ Düzeltildi |
 | 🔴 P0 | Interface+Implementation tek dosya | SOC ihlali | 🔲 Bu oturumda düzeltilecek |
 | 🟠 P1 | ResetPassword expiry kontrolü yok + kod tekrar kullanılabiliyor | Güvenlik açığı | 🔲 Bu oturumda düzeltilecek |
 | 🟠 P1 | removeResult → addResult bug | Yanlış hata mesajı | 🔲 Bu oturumda düzeltilecek |
@@ -495,7 +495,7 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 
 ### 🔲 Faz 1 — Kritik Düzeltmeler (bu oturumda planlı)
 
-- [ ] `ProductService.DeleteAsync` bug düzelt → `"Product deleted."`
+- [x] `ProductService.DeleteAsync` bug düzelt → `"Product deleted."`
 - [ ] `IAuthService.cs` → dosya ayırma
 - [ ] `ResetPassword` OTP expiry kontrolü ekle + kullanılan kodu temizle
 - [ ] `removeResult.Errors` → `addResult.Errors` bug düzelt
