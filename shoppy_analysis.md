@@ -41,7 +41,7 @@ IAuthService.cs(105,42): error CS7036: ... aynı hata
 - Hiçbir endpoint `PermissionRequirement` veya permission-bazlı bir policy kullanmıyordu.
 - Yeni self-servis metotları (`GetProfileAsync`/`UpdateSelfAsync`/`ChangePasswordAsync`) `UserModule`'de hiçbir endpoint'e bağlı değildi — API'den erişilemezdi.
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (handler'ın singleton olarak kaydı, `Permissions.GetAll()`'daki her permission için bir authorization policy, uygulama açılışında Admin/Customer rolleri + `RolePermissions` seed'i, tüm modüllerde ilgili permission policy'lerinin uygulanması, `GET/PUT /api/v1/users/me` ve `POST /api/v1/users/me/change-password` endpoint'lerinin eklenmesi).
+**DURUM:** ✅ Düzeltildi — handler singleton olarak kayıtlı, `Permissions.GetAll()`'daki her permission için bir authorization policy kayıtlı, uygulama açılışında Admin/Customer rolleri + `RolePermissions` yeni bir `RolePermissionSeeder` ile seed ediliyor, tüm modüllerde ilgili permission policy'leri uygulanıyor, `GET/PUT /api/v1/users/me` ve `POST /api/v1/users/me/change-password` endpoint'leri eklendi. Ayrıca bu çalışma sırasında `ApplicationDbContext.SaveChangesAsync`'te gizli bir NRE riski bulundu ve düzeltildi (`_httpContextAccessor?.HttpContext.User` → `?.HttpContext?.User`) — HTTP isteği dışında (ör. seeder) `SaveChangesAsync` çağrıldığında çökme riski vardı, testler NSubstitute'ün `HttpContext`'i otomatik taklit etmesi nedeniyle bunu yakalamıyordu.
 
 ---
 
@@ -53,7 +53,7 @@ app.MapGet(string.Empty, async (...) => { ... }).RequireRateLimiting("Admin");
 
 `"Admin"` `Program.cs`'de kayıtlı bir rate-limiter policy'si değil (`Program.cs`'de sadece `"fixed"` ve `"auth-fixed"` var). Sonuç: (a) tüm admin User CRUD endpoint'leri **kimlik doğrulamasından tamamen muaf**; (b) istek geldiğinde `InvalidOperationException` fırlatıyor (policy bulunamadı).
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (`RequireRateLimiting("Admin")` çağrıları kaldırılıp yerine ilgili `Permissions.Users.*` policy'leriyle `.RequireAuthorization(...)` konacak).
+**DURUM:** ✅ Düzeltildi — `RequireRateLimiting("Admin")` çağrıları kaldırıldı, yerine ilgili `Permissions.Users.*` policy'leriyle `.RequireAuthorization(...)` kondu.
 
 ---
 
@@ -63,7 +63,19 @@ app.MapGet(string.Empty, async (...) => { ... }).RequireRateLimiting("Admin");
 .RequireAuthorization(); // policy adı yok — herhangi bir authenticated kullanıcı rol oluşturabilir/silebilir
 ```
 
-**DURUM:** 🔲 Açık — bu oturumda düzeltilecek (her endpoint kendi `Permissions.Roles.*` policy'sini talep edecek şekilde güncellenecek).
+**DURUM:** ✅ Düzeltildi — her endpoint artık kendi `Permissions.Roles.*` policy'sini talep ediyor.
+
+---
+
+### 🟠 P0 — `ApplicationDbContext.SaveChangesAsync`: Gizli NRE Riski (bu oturumda bulundu)
+
+```csharp
+if (_httpContextAccessor?.HttpContext.User?.Identity?.IsAuthenticated == true)
+```
+
+`?.` yalnızca `_httpContextAccessor`'ı null'a karşı koruyor; `.HttpContext` sonrasında düz `.User` erişimi var. HTTP isteği dışında (startup seeding, background job, hosted service) `HttpContext` gerçekten null olduğunda bu satır `NullReferenceException` fırlatır. Mevcut testler bunu yakalamıyordu çünkü `NSubstitute`'ün `Substitute.For<IHttpContextAccessor>()`'ı, `HttpContext`'i null yerine otomatik bir substitute ile dolduruyor (recursive/auto substitution) — yani test double'lar gerçek runtime davranışını maskeliyordu.
+
+**DURUM:** ✅ Düzeltildi — `?.HttpContext?.User` olarak güncellendi. Bu düzeltme, permission seed mekanizmasının (aşağıda) startup'ta `SaveChangesAsync` çağırabilmesi için ön koşuldu.
 
 ---
 
@@ -433,7 +445,7 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 | Migration stratejisi | ❓ Belirsiz |
 | Environment ayrımı | 🟡 Eksik |
 | Build durumu | ✅ Derleniyor (önceden derlenmiyordu) |
-| Permission enforcement | 🔴 Tamamen bağlı değil (bu oturumda düzeltilecek) |
+| Permission enforcement | ✅ Çalışıyor (önceden tamamen bağlı değildi) |
 
 ---
 
@@ -442,9 +454,9 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 | Öncelik | Sorun | Etki | Durum |
 |---------|-------|------|-------|
 | 🔴 P0 | Proje derlenmiyordu (JwtProvider imza uyuşmazlığı) | Hiçbir şey build/run edilemiyor | ✅ Düzeltildi |
-| 🔴 P0 | Permission sistemi hiç bağlı değil (handler kayıtsız, seed yok, endpoint yok) | Yeni özellik tamamen işlevsiz | 🔲 Bu oturumda düzeltilecek |
-| 🔴 P0 | UserModule: `RequireRateLimiting("Admin")` yetkilendirme yerine kullanılmış | Admin endpoint'leri açık + runtime exception | 🔲 Bu oturumda düzeltilecek |
-| 🟠 P0 | RoleModule: policy'siz `RequireAuthorization()` | Herhangi bir kullanıcı rol yönetebilir | 🔲 Bu oturumda düzeltilecek |
+| 🔴 P0 | Permission sistemi hiç bağlı değil (handler kayıtsız, seed yok, endpoint yok) | Yeni özellik tamamen işlevsiz | ✅ Düzeltildi |
+| 🔴 P0 | UserModule: `RequireRateLimiting("Admin")` yetkilendirme yerine kullanılmış | Admin endpoint'leri açık + runtime exception | ✅ Düzeltildi |
+| 🟠 P0 | RoleModule: policy'siz `RequireAuthorization()` | Herhangi bir kullanıcı rol yönetebilir | ✅ Düzeltildi |
 | 🔴 P0 | Secrets git'te | Güvenlik açığı | 🔲 Bu oturumda ileriye dönük düzeltilecek (geçmiş temiz kalacak) |
 | 🔴 P0 | `ProductService.DeleteAsync` bug | Yanlış mesaj | 🔲 Bu oturumda düzeltilecek |
 | 🔴 P0 | Interface+Implementation tek dosya | SOC ihlali | 🔲 Bu oturumda düzeltilecek |
@@ -476,10 +488,10 @@ En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permissi
 ### 🔲 Faz 0 — Build Fix + Permission Sistemi (bu oturumda planlı)
 
 - [x] `JwtProvider.CreateToken` çağrılarını 3 parametreye güncelle (permission hesaplama)
-- [ ] `PermissionAuthorizationHandler`'ı DI'a kaydet + her permission için policy tanımla
-- [ ] Admin/Customer rolleri + `RolePermissions` için seed mekanizması ekle
-- [ ] Tüm modüllerde (Product/Category/Order/OrderItem/Role/User) gerçek permission policy'lerini uygula
-- [ ] `UserModule`'e self-servis endpoint'leri ekle (`GET/PUT /me`, `POST /me/change-password`)
+- [x] `PermissionAuthorizationHandler`'ı DI'a kaydet + her permission için policy tanımla
+- [x] Admin/Customer rolleri + `RolePermissions` için seed mekanizması ekle
+- [x] Tüm modüllerde (Product/Category/Order/OrderItem/Role/User) gerçek permission policy'lerini uygula
+- [x] `UserModule`'e self-servis endpoint'leri ekle (`GET/PUT /me`, `POST /me/change-password`)
 
 ### 🔲 Faz 1 — Kritik Düzeltmeler (bu oturumda planlı)
 
