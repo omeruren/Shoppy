@@ -34,11 +34,21 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         var roles = await _context.AppUserRoles
               .Where(u => u.UserId == user.Id)
               .LeftJoin(_context.AppRoles, m => m.RoleId, m => m.Id, (userRole, role) => role)
-              .Select(s => s!.Name)
+              .Select(s => (string?)s!.Name)
               .ToListAsync(cancellationToken);
 
+        var roleIds = await _context.AppUserRoles
+              .Where(u => u.UserId == user.Id)
+              .Select(u => u.RoleId)
+              .ToListAsync(cancellationToken);
 
-        var loginResponse = _jwtProvider.CreateToken(user, roles);
+        var permissions = await _context.RolePermissions
+              .Where(rp => roleIds.Contains(rp.RoleId))
+              .Select(rp => rp.PermissionName)
+              .Distinct()
+              .ToListAsync(cancellationToken);
+
+        var loginResponse = _jwtProvider.CreateToken(user, roles, permissions);
 
         // Save refresh token to database
         var refreshToken = new RefreshToken
@@ -87,11 +97,23 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         var roles = await _context.AppUserRoles
             .Where(u => u.UserId == storedToken.UserId)
             .LeftJoin(_context.AppRoles, m => m.RoleId, m => m.Id, (userRole, role) => role)
-            .Select(s => s!.Name)
+            .Select(s => (string?)s!.Name)
+            .ToListAsync(cancellationToken);
+
+        // get user permissions (via role ids, from RolePermissions)
+        var roleIds = await _context.AppUserRoles
+            .Where(u => u.UserId == storedToken.UserId)
+            .Select(u => u.RoleId)
+            .ToListAsync(cancellationToken);
+
+        var permissions = await _context.RolePermissions
+            .Where(rp => roleIds.Contains(rp.RoleId))
+            .Select(rp => rp.PermissionName)
+            .Distinct()
             .ToListAsync(cancellationToken);
 
         // Generate new tokens
-        var loginResponse = _jwtProvider.CreateToken(storedToken.User, roles);
+        var loginResponse = _jwtProvider.CreateToken(storedToken.User, roles, permissions);
 
         // Save new refresh token
         var newRefreshToken = new RefreshToken
