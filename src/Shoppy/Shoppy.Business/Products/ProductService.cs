@@ -31,6 +31,7 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
                     Id = s.product.Id,
                     Name = s.product.Name,
                     Description = s.product.Description,
+                    Price = s.product.Price,
                     CategoryId = s.product.CategoryId,
                     CategoryName = s.category!.Name,
 
@@ -56,6 +57,7 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
                 Id = s.product.Id,
                 Name = s.product.Name,
                 Description = s.product.Description,
+                Price = s.product.Price,
                 CategoryId = s.product.CategoryId,
                 CategoryName = s.category!.Name,
 

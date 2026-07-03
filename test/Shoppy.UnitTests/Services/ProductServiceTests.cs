@@ -72,6 +72,7 @@ public class ProductServiceTests
         result.IsSuccessful.Should().BeTrue();
         result.Data.Should().NotBeNull();
         result.Data!.Name.Should().Be("Widget");
+        result.Data.Price.Should().Be(9.99m);
     }
 
     [Fact]
@@ -102,6 +103,7 @@ public class ProductServiceTests
 
         result.IsSuccessful.Should().BeTrue();
         result.Data!.TotalCount.Should().Be(3);
+        result.Data.Data.Should().OnlyContain(p => p.Price == 9.99m);
     }
 
     [Fact]
