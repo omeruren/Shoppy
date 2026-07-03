@@ -149,13 +149,11 @@ app.UseSerilogRequestLogging();
 
 app.MapOpenApi();
 
+var corsAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+
 app.UseCors(c => c
                     .AllowAnyMethod()
-                    .WithOrigins(
-                                "http://localhost:3000",
-                                "http://localhost:5176",
-                                "http://localhost:5226"
-                                )
+                    .WithOrigins(corsAllowedOrigins)
                     .AllowAnyHeader()
                     .AllowCredentials()
                     .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
