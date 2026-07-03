@@ -2,6 +2,7 @@
 using Carter;
 using Shoppy.Business.Auth;
 using Shoppy.Business.Auth.DataTransferObjects;
+using Shoppy.Business.BaseResult;
 using Shoppy.WebAPI.Filters;
 
 namespace Shoppy.WebAPI.Modules;
@@ -31,7 +32,7 @@ public sealed class AuthModule : ICarterModule
         {
             var result = await _service.LoginAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         });
 
 
@@ -44,7 +45,7 @@ public sealed class AuthModule : ICarterModule
         {
             var result = await _service.RefreshTokenAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.Unauthorized();
+            return result.ToHttpResult();
         });
 
 
@@ -59,7 +60,7 @@ public sealed class AuthModule : ICarterModule
 
             // always return 200 to prevent user enumeration attacks.
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.Problem(result.ErrorMessages?.FirstOrDefault(), statusCode: result.StatusCode);
+            return result.ToHttpResult();
         }).AddEndpointFilter<FluentValidationFilter<ForgotPasswordRequestDto>>();
 
         // RESET PASSWORD
@@ -71,7 +72,7 @@ public sealed class AuthModule : ICarterModule
         {
             var result = await _service.ResetPasswordAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.BadRequest(result);
+            return result.ToHttpResult();
         }).AddEndpointFilter<FluentValidationFilter<ResetPasswordRequestDto>>();
 
     }

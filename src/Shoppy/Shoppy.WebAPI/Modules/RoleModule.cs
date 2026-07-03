@@ -31,7 +31,7 @@ public sealed class RoleModule : ICarterModule
         {
             var result = await _service.GetAllAsync(cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Roles.Read);
 
         // GET ROLE BY ID
@@ -42,7 +42,7 @@ public sealed class RoleModule : ICarterModule
         {
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Roles.Read);
 
         // CREATE ROLE
@@ -53,21 +53,23 @@ public sealed class RoleModule : ICarterModule
         {
             var result = await _service.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.Conflict(result.StatusCode);
+            return result.ToHttpResult(location: string.Empty);
         })
             .Produces<Result<string>>()
             .AddEndpointFilter<FluentValidationFilter<RoleCreateDto>>()
             .RequireAuthorization(Permissions.Roles.Create);
 
         // UPDATE ROLE
-        app.MapPut(string.Empty, async (
+        app.MapPut("{id:guid}", async (
+            Guid id,
             RoleUpdateDto request,
             IRoleService _service,
             CancellationToken cancellationToken) =>
         {
+            request = request with { Id = id };
             var result = await _service.UpdateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         })
             .Produces<Result<string>>()
             .AddEndpointFilter<FluentValidationFilter<RoleUpdateDto>>()
@@ -81,7 +83,7 @@ public sealed class RoleModule : ICarterModule
         {
             var result = await _service.DeleteAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Roles.Delete);
 
     }

@@ -1,8 +1,7 @@
-﻿using Mapster;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.Business.Orders.DataTransferObjects;
@@ -11,40 +10,23 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Orders;
 
-public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _cache) : IOrderService
+public sealed class OrderService(ApplicationDbContext _context, ICacheService _cacheService) : IOrderService
 {
     private const string CacheKeyPrefix = "orders";
 
-
     private readonly DbSet<Order> _orders = _context.Set<Order>();
-
-    private static CancellationTokenSource _cacheResetToken = new();
-
-    private static void InvalidateCache()
-    {
-        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
-        oldToken.Cancel();
-        oldToken.Dispose();
-    }
-
-
-    private static string BuildCacheKey(PaginationRequestDto request)
-        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
-
+    private readonly DbSet<OrderItem> _orderItems = _context.Set<OrderItem>();
 
     // GET ALL ORDERS
 
     public async Task<Result<PaginationResultDto<OrderResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        string cacheKey = BuildCacheKey(request);
-
-        var orders = _cache.Get<PaginationResultDto<OrderResultDto>>(cacheKey);
-
-        if (orders is null)
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
         {
-
-            orders = await _orders
+            return await _orders
                .AsNoTracking()
+               .Where(o => string.IsNullOrWhiteSpace(request.SearchTerm)
+                   || o.Items.Any(i => i.Product.Name.Contains(request.SearchTerm)))
                .Include(o => o.Items)
                .Select(p => new OrderResultDto
                {
@@ -75,14 +57,7 @@ public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _ca
 
                })
                .WithPagination(request, cancellationToken);
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-               .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-               .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
-
-            _cache.Set(cacheKey, orders, cacheOptions);
-        }
-        return orders;
+        }, TimeSpan.FromMinutes(5));
     }
 
 
@@ -107,7 +82,7 @@ public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _ca
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
         if (order is null)
-            return Result<OrderResultDto>.Failure(404, "Order not found.");
+            return Result<OrderResultDto>.Failure(404, ErrorMessages.Order.NotFound);
 
         return order;
     }
@@ -124,30 +99,70 @@ public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _ca
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
-        return "Order created.";
+        return Result<string>.Success("Order created.", 201);
     }
 
     // UPDATE ORDER
 
     public async Task<Result<string>> UpdateAsync(OrderUpdateDto request, CancellationToken cancellationToken)
     {
-        Order? order = await _orders.FindAsync([request.Id], cancellationToken);
+        Order? order = await _orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == request.Id, cancellationToken);
 
         if (order is null)
-            return Result<string>.Failure(404, "Order not found.");
+            return Result<string>.Failure(404, ErrorMessages.Order.NotFound);
 
-        request.Adapt(order);
+        order.OrderDate = request.OrderDate;
 
         if (request.RowVersion is not null)
             _context.Entry(order).Property(x => x.RowVersion).OriginalValue = request.RowVersion;
 
+        // Reconcile Items against the DTO instead of letting Mapster replace the whole navigation
+        // (order.Items is now loaded/tracked, so Add/Remove here translates to real inserts/soft-deletes
+        // rather than duplicating or orphaning rows).
+        var dtoIds = request.Items.Select(i => i.Id).ToHashSet();
 
-        _orders.Update(order);
+        foreach (var existingItem in order.Items.ToList())
+        {
+            if (!dtoIds.Contains(existingItem.Id))
+                order.Items.Remove(existingItem);
+        }
+
+        foreach (var itemDto in request.Items)
+        {
+            var existingItem = order.Items.FirstOrDefault(i => i.Id == itemDto.Id);
+
+            if (existingItem is not null)
+            {
+                existingItem.ProductId = itemDto.ProductId;
+                existingItem.Quantity = itemDto.Quantity;
+
+                if (itemDto.RowVersion is not null)
+                    _context.Entry(existingItem).Property(x => x.RowVersion).OriginalValue = itemDto.RowVersion;
+            }
+            else
+            {
+                // Explicitly Add() to the DbSet (not the navigation collection) — EF's Guid-key
+                // convention is ValueGeneratedOnAdd, so a new entity merely appended to a tracked
+                // navigation (with its non-default, client-generated Id already set) gets
+                // ambiguously picked up by DetectChanges as Modified instead of Added. Adding it
+                // to _orderItems directly avoids the ambiguity; EF's FK-based fixup then adds it
+                // to order.Items automatically (adding it there too would duplicate the reference).
+                _orderItems.Add(new OrderItem
+                {
+                    OrderId = order.Id,
+                    ProductId = itemDto.ProductId,
+                    Quantity = itemDto.Quantity
+                });
+            }
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Order updated.";
     }
@@ -157,15 +172,17 @@ public sealed class OrderService(ApplicationDbContext _context, IMemoryCache _ca
 
     public async Task<Result<string>> DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
-        var order = await _orders.FindAsync([id], cancellationToken);
+        var order = await _orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
         if (order is null)
-            return Result<string>.Failure(404, "Order not found.");
+            return Result<string>.Failure(404, ErrorMessages.Order.NotFound);
 
         _orders.Remove(order);
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Order deleted.";
     }

@@ -52,6 +52,8 @@ public sealed class Result<T>
     // SUCCESS
     public static Result<T> Success(T data) => new(data);
 
+    public static Result<T> Success(T data, int statusCode) => new(data) { StatusCode = statusCode };
+
     // FAILURE
     public static Result<T> Failure(int statusCode, List<string> errorMessages) => new(statusCode, errorMessages);
 

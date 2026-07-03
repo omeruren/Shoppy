@@ -5,6 +5,7 @@ using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories.DataTransferObjects;
 using Shoppy.Business.Extensions;
+using Shoppy.Business.Products.DataTransferObjects;
 using Shoppy.Business.Users.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using System.Net;
@@ -151,7 +152,7 @@ public class ApiIntegrationTests
         }
 
         // 2. Perform a successful update (this will increment/change the RowVersion in DB)
-        var updateRequestA = new HttpRequestMessage(HttpMethod.Put, "/api/v1/categories");
+        var updateRequestA = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/categories/{categoryId}");
 
         updateRequestA.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -162,7 +163,7 @@ public class ApiIntegrationTests
         updateResponseA.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // 3. Perform a second update using the OLD RowVersion (should result in 409 Conflict because RowVersion changed)
-        var updateRequestB = new HttpRequestMessage(HttpMethod.Put, "/api/v1/categories");
+        var updateRequestB = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/categories/{categoryId}");
 
         updateRequestB.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -174,5 +175,45 @@ public class ApiIntegrationTests
 
         updateResponseB.StatusCode.Should().Be(HttpStatusCode.Conflict);
 
+    }
+
+    [Fact]
+    public async Task CreateProduct_Should_Return_409_When_Two_Concurrent_Requests_Use_Same_Name()
+    {
+        var token = await GetAuthenticatedTokenAsync("productconcurrencyuser", "Password123!");
+
+        // Create a category for the products to reference
+        var categoryRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/categories");
+        categoryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        categoryRequest.Content = JsonContent.Create(new CategoryCreateDto("Concurrency Product Category"));
+
+        var categoryResponse = await _client.SendAsync(categoryRequest);
+        categoryResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        Guid categoryId;
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var category = await context.Categories.FirstAsync(c => c.Name == "Concurrency Product Category");
+            categoryId = category.Id;
+        }
+
+        var productName = $"Concurrent Product {Guid.NewGuid()}";
+
+        Task<HttpResponseMessage> CreateProductAsync()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/products");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Content = JsonContent.Create(new ProductCreateDto(productName, null, 9.99m, categoryId));
+            return _client.SendAsync(request);
+        }
+
+        // Act - fire two requests with the identical Name at (near-)the same time
+        var responses = await Task.WhenAll(CreateProductAsync(), CreateProductAsync());
+
+        // Assert - exactly one succeeds, the other is a 409 conflict (never an unhandled 500)
+        responses.Should().OnlyContain(r => r.StatusCode == HttpStatusCode.Created || r.StatusCode == HttpStatusCode.Conflict);
+        responses.Count(r => r.StatusCode == HttpStatusCode.Created).Should().Be(1);
     }
 }

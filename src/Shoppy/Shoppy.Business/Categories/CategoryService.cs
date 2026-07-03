@@ -1,8 +1,7 @@
-﻿using Mapster;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Categories.DataTransferObjects;
 using Shoppy.Business.Extensions;
 using Shoppy.DataAccess.Context;
@@ -10,38 +9,20 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Categories;
 
-public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache _cache) : ICategoryService
+public sealed class CategoryService(ApplicationDbContext _context, ICacheService _cacheService) : ICategoryService
 {
     private const string CacheKeyPrefix = "categories";
 
     private readonly DbSet<Category> _categories = _context.Set<Category>();
 
-    // Cache invalidation via CancellationTokenSource
-    private static CancellationTokenSource _cacheResetToken = new();
-
-    private static void InvalidateCache()
-    {
-        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
-        oldToken.Cancel();
-        oldToken.Dispose();
-    }
-
-    private static string BuildCacheKey(PaginationRequestDto request)
-        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
-
     // Get All Categories
     public async Task<Result<PaginationResultDto<CategoryResultDto>>> GetallAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        var cacheKey = BuildCacheKey(request);
-
-        var categories = _cache.Get<PaginationResultDto<CategoryResultDto>>(cacheKey);
-
-        if (categories is null)
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
         {
-
-
-            categories = await _categories
+            return await _categories
                 .AsNoTracking()
+                .Where(c => string.IsNullOrWhiteSpace(request.SearchTerm) || c.Name.Contains(request.SearchTerm))
                 .Select(p => new CategoryResultDto
                 {
                     Id = p.Id,
@@ -60,15 +41,7 @@ public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache 
                 })
                 .OrderBy(c => c.Name)
                 .WithPagination(request, cancellationToken);
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
-
-            _cache.Set(cacheKey, categories, cacheOptions);
-        }
-
-        return categories;
+        }, TimeSpan.FromMinutes(5));
     }
 
     // Get Category By Id
@@ -78,9 +51,9 @@ public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache 
         Category? category = await _categories.FindAsync(id, cancellationToken);
 
         if (category is null)
-            return Result<CategoryResultDto>.Failure(404, "Category not found.");
+            return Result<CategoryResultDto>.Failure(404, ErrorMessages.Category.NotFound);
 
-        var categoryResult = category.Adapt<Result<CategoryResultDto>>();
+        var categoryResult = category.Adapt<CategoryResultDto>();
 
         return categoryResult;
     }
@@ -92,16 +65,16 @@ public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache 
         bool isExists = await _categories.AnyAsync(c => c.Name.Equals(request.Name), cancellationToken);
 
         if (isExists)
-            return Result<string>.Failure(409, "Category is already exists.");
+            return Result<string>.Failure(409, ErrorMessages.Category.AlreadyExists);
 
         Category category = request.Adapt<Category>();
 
         _categories.Add(category);
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
-        return "Category created.";
+        return Result<string>.Success("Category created.", 201);
     }
 
     // Update Category
@@ -110,14 +83,14 @@ public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache 
         Category? category = await _categories.FindAsync([request.Id], cancellationToken);
 
         if (category is null)
-            return Result<string>.Failure(404, "Category not found.");
+            return Result<string>.Failure(404, ErrorMessages.Category.NotFound);
 
         if (request.Name != category.Name)
         {
             bool isExists = await _categories.AnyAsync(c => c.Name.Equals(request.Name), cancellationToken);
 
             if (isExists)
-                return Result<string>.Failure(409, "Category is already exists.");
+                return Result<string>.Failure(409, ErrorMessages.Category.AlreadyExists);
         }
 
         request.Adapt(category);
@@ -128,7 +101,7 @@ public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache 
         _categories.Update(category);
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Category updated.";
     }
@@ -140,13 +113,13 @@ public sealed class CategoryService(ApplicationDbContext _context, IMemoryCache 
         Category? category = await _categories.FindAsync(id, cancellationToken);
 
         if (category is null)
-            return Result<string>.Failure(404, "Category not found.");
+            return Result<string>.Failure(404, ErrorMessages.Category.NotFound);
 
         _categories.Remove(category);
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Category deleted.";
     }

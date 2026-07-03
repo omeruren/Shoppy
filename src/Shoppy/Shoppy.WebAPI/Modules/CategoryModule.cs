@@ -38,7 +38,7 @@ public sealed class CategoryModule : ICarterModule
 
             var result = await _service.GetallAsync(paginationRequest, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<List<CategoryResultDto>>>()
@@ -54,7 +54,7 @@ public sealed class CategoryModule : ICarterModule
         {
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<CategoryResultDto>>()
@@ -69,7 +69,7 @@ public sealed class CategoryModule : ICarterModule
         {
             var result = await _service.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result.StatusCode);
+            return result.ToHttpResult(location: string.Empty);
 
         })
             .Produces<Result<string>>()
@@ -78,14 +78,16 @@ public sealed class CategoryModule : ICarterModule
 
         // UPDATE CATEGORY
 
-        app.MapPut(string.Empty, async (
+        app.MapPut("{id:guid}", async (
+            Guid id,
             CategoryUpdateDto request,
             ICategoryService _service,
           CancellationToken cancellationToken) =>
         {
+            request = request with { Id = id };
             var result = await _service.UpdateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<string>>()
@@ -101,7 +103,7 @@ public sealed class CategoryModule : ICarterModule
         {
             var result = await _service.DeleteAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<string>>()

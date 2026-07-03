@@ -36,7 +36,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         User? user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null || user.IsDeleted)
-            return Result<UserProfileDto>.Failure(404, "User not found.");
+            return Result<UserProfileDto>.Failure(404, ErrorMessages.User.NotFound);
 
         return ToProfile(user);
     }
@@ -49,7 +49,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
             .AnyAsync(u => u.Email == request.Email, cancellationToken);
 
         if (isEmailExists)
-            return Result<string>.Failure(409, "This email is already taken.");
+            return Result<string>.Failure(409, ErrorMessages.User.EmailAlreadyTaken);
 
         User user = User.Create(request.FirstName, request.LastName, request.UserName, request.Email);
 
@@ -58,7 +58,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         if (!result.Succeeded)
             return Result<string>.Failure(400, result.Errors.Select(e => e.Description).ToList());
 
-        return "User created successfully.";
+        return Result<string>.Success("User created successfully.", 201);
     }
 
     // ── Admin: UPDATE ────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         User? user = await _userManager.FindByIdAsync(request.Id.ToString());
 
         if (user is null || user.IsDeleted)
-            return Result<string>.Failure(404, "User not found.");
+            return Result<string>.Failure(404, ErrorMessages.User.NotFound);
 
         user.Update(request.FirstName, request.LastName, request.UserName, request.Email);
 
@@ -87,7 +87,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         var user = await _userManager.FindByIdAsync(id.ToString());
 
         if (user is null)
-            return Result<string>.Failure(404, "User not found.");
+            return Result<string>.Failure(404, ErrorMessages.User.NotFound);
 
         if (!user.IsDeleted)
         {
@@ -113,7 +113,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         User? user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null || user.IsDeleted)
-            return Result<UserProfileDto>.Failure(404, "User not found.");
+            return Result<UserProfileDto>.Failure(404, ErrorMessages.User.NotFound);
 
         return ToProfile(user);
     }
@@ -126,7 +126,7 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         User? user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null || user.IsDeleted)
-            return Result<string>.Failure(404, "User not found.");
+            return Result<string>.Failure(404, ErrorMessages.User.NotFound);
 
         // Only name and username are self-editable; email changes require admin
         user.Update(request.FirstName, request.LastName, request.UserName, user.Email!);
@@ -145,12 +145,12 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         Guid userId, ChangePasswordDto request, CancellationToken cancellationToken)
     {
         if (request.NewPassword != request.ConfirmNewPassword)
-            return Result<string>.Failure(400, "New password and confirmation do not match.");
+            return Result<string>.Failure(400, ErrorMessages.Auth.PasswordMismatch);
 
         User? user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null || user.IsDeleted)
-            return Result<string>.Failure(404, "User not found.");
+            return Result<string>.Failure(404, ErrorMessages.User.NotFound);
 
         var result = await _userManager.ChangePasswordAsync(
             user, request.CurrentPassword, request.NewPassword);

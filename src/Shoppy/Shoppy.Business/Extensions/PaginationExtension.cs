@@ -23,6 +23,9 @@ public static class PaginationExtension
         };
         return pagRes;
     }
+
+    public static string ToCacheKey(this PaginationRequestDto request, string prefix)
+        => $"{prefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
 }
 
 public sealed record PaginationRequestDto(int PageNumber, int PageSize, string SearchTerm);

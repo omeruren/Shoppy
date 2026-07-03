@@ -1,13 +1,14 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NSubstitute;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems;
 using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
+using Shoppy.UnitTests.TestDoubles;
 using System.Security.Claims;
 
 namespace Shoppy.UnitTests.Services;
@@ -15,7 +16,7 @@ namespace Shoppy.UnitTests.Services;
 public class OrderItemServiceTests
 {
     private readonly ApplicationDbContext _context;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheService _cacheService;
     private readonly OrderItemService _service;
     private readonly Guid _userId = Guid.NewGuid();
 
@@ -36,12 +37,9 @@ public class OrderItemServiceTests
 
         _context = new ApplicationDbContext(options, httpContextAccessor);
 
-        // Stub IMemoryCache — always return cache miss so service hits the database
-        _cache = Substitute.For<IMemoryCache>();
-        object? cacheEntry = null;
-        _cache.TryGetValue(Arg.Any<object>(), out cacheEntry).Returns(false);
+        _cacheService = new NoOpCacheService();
 
-        _service = new OrderItemService(_context, _cache);
+        _service = new OrderItemService(_context, _cacheService);
     }
 
     // ─────────────────────────────────────────────

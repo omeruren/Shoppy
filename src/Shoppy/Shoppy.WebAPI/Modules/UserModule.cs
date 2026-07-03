@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Carter;
+using Shoppy.Business.BaseResult;
 using Shoppy.Business.Permissions;
 using Shoppy.Business.Users;
 using Shoppy.Business.Users.DataTransferObjects;
@@ -35,7 +36,7 @@ public class UserModule : ICarterModule
             var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm);
             var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Users.Read);
 
 
@@ -48,7 +49,7 @@ public class UserModule : ICarterModule
         {
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Users.Read);
 
 
@@ -61,19 +62,21 @@ public class UserModule : ICarterModule
         {
             var result = await _service.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result);
+            return result.ToHttpResult(location: string.Empty);
         }).RequireAuthorization(Permissions.Users.Create);
 
         // UPDATE USER
 
-        app.MapPut(string.Empty, async (
+        app.MapPut("{id:guid}", async (
+            Guid id,
             UserUpdateDto request,
             IUserService _service,
             CancellationToken cancellationToken) =>
         {
+            request = request with { Id = id };
             var result = await _service.UpdateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Users.Update);
 
 
@@ -86,7 +89,7 @@ public class UserModule : ICarterModule
         {
             var result = await _service.DeleteAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Users.Delete);
 
 
@@ -102,7 +105,7 @@ public class UserModule : ICarterModule
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.GetProfileAsync(userId, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
         }).RequireAuthorization();
 
         // UPDATE MY PROFILE
@@ -116,7 +119,7 @@ public class UserModule : ICarterModule
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.UpdateSelfAsync(userId, request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         }).RequireAuthorization();
 
         // CHANGE MY PASSWORD
@@ -130,7 +133,7 @@ public class UserModule : ICarterModule
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _service.ChangePasswordAsync(userId, request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
         }).RequireAuthorization();
 
     }

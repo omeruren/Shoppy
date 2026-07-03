@@ -1,14 +1,15 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NSubstitute;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Orders;
 using Shoppy.Business.Orders.DataTransferObjects;
 using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
+using Shoppy.UnitTests.TestDoubles;
 using System.Security.Claims;
 
 namespace Shoppy.UnitTests.Services;
@@ -16,7 +17,7 @@ namespace Shoppy.UnitTests.Services;
 public class OrderServiceTests
 {
     private readonly ApplicationDbContext _context;
-    private readonly IMemoryCache _cache;
+    private readonly ICacheService _cacheService;
     private readonly OrderService _service;
     private readonly Guid _userId = Guid.NewGuid();
 
@@ -37,12 +38,9 @@ public class OrderServiceTests
 
         _context = new ApplicationDbContext(options, httpContextAccessor);
 
-        // Stub IMemoryCache — always return cache miss so service hits the database
-        _cache = Substitute.For<IMemoryCache>();
-        object? cacheEntry = null;
-        _cache.TryGetValue(Arg.Any<object>(), out cacheEntry).Returns(false);
+        _cacheService = new NoOpCacheService();
 
-        _service = new OrderService(_context, _cache);
+        _service = new OrderService(_context, _cacheService);
     }
 
     // ─────────────────────────────────────────────
@@ -253,6 +251,97 @@ public class OrderServiceTests
         result.IsSuccessful.Should().BeFalse();
         result.StatusCode.Should().Be(404);
         result.ErrorMessages.Should().Contain("Order not found.");
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_Add_New_Item_When_Not_Present()
+    {
+        // Arrange
+        var order = await SeedOrderAsync(itemCount: 1);
+        var existingItem = order.Items.Single();
+        var newProductId = Guid.NewGuid();
+
+        var dto = new OrderUpdateDto(order.Id, order.OrderDate,
+        [
+            new OrderItemUpdateDto(existingItem.Id, existingItem.ProductId, existingItem.Quantity),
+            new OrderItemUpdateDto(Guid.Empty, newProductId, 3)
+        ]);
+
+        // Act
+        var result = await _service.UpdateAsync(dto, CancellationToken.None);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+
+        var updated = await _context.Orders.Include(o => o.Items).FirstAsync(o => o.Id == order.Id);
+        updated.Items.Should().HaveCount(2);
+        updated.Items.Should().Contain(i => i.ProductId == newProductId && i.Quantity == 3);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_Update_Existing_Item_Fields_When_Id_Matches()
+    {
+        // Arrange
+        var order = await SeedOrderAsync(itemCount: 1);
+        var existingItem = order.Items.Single();
+        var newProductId = Guid.NewGuid();
+
+        var dto = new OrderUpdateDto(order.Id, order.OrderDate,
+        [
+            new OrderItemUpdateDto(existingItem.Id, newProductId, 42)
+        ]);
+
+        // Act
+        var result = await _service.UpdateAsync(dto, CancellationToken.None);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+
+        var updated = await _context.Orders.Include(o => o.Items).FirstAsync(o => o.Id == order.Id);
+        updated.Items.Should().ContainSingle();
+        updated.Items.Single().Id.Should().Be(existingItem.Id);
+        updated.Items.Single().ProductId.Should().Be(newProductId);
+        updated.Items.Single().Quantity.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_Remove_Item_Not_Present_In_Dto()
+    {
+        // Arrange
+        var order = await SeedOrderAsync(itemCount: 2);
+        var keepItem = order.Items.First();
+
+        var dto = new OrderUpdateDto(order.Id, order.OrderDate,
+        [
+            new OrderItemUpdateDto(keepItem.Id, keepItem.ProductId, keepItem.Quantity)
+        ]);
+
+        // Act
+        var result = await _service.UpdateAsync(dto, CancellationToken.None);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+
+        var updated = await _context.Orders.Include(o => o.Items).FirstAsync(o => o.Id == order.Id);
+        updated.Items.Should().ContainSingle();
+        updated.Items.Single().Id.Should().Be(keepItem.Id);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_Not_Duplicate_Items_When_Reconciling_Same_Payload_Twice()
+    {
+        // Arrange — regression test for the original Mapster whole-collection-Adapt bug
+        var order = await SeedOrderAsync(itemCount: 2);
+        var items = order.Items.Select(i => new OrderItemUpdateDto(i.Id, i.ProductId, i.Quantity)).ToList();
+        var dto = new OrderUpdateDto(order.Id, order.OrderDate, items);
+
+        // Act
+        await _service.UpdateAsync(dto, CancellationToken.None);
+        await _service.UpdateAsync(dto, CancellationToken.None);
+
+        // Assert
+        var updated = await _context.Orders.Include(o => o.Items).FirstAsync(o => o.Id == order.Id);
+        updated.Items.Should().HaveCount(2);
     }
 
     // ─────────────────────────────────────────────

@@ -37,8 +37,7 @@ public class ProductModule : ICarterModule
             var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm);
             var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 
-
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<List<ProductResultDto>>>()
@@ -53,7 +52,7 @@ public class ProductModule : ICarterModule
         {
             var result = await _service.GetByIdAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<ProductResultDto>>()
@@ -68,7 +67,7 @@ public class ProductModule : ICarterModule
         {
             var result = await _service.CreateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Created(string.Empty, result) : Results.Conflict(result.StatusCode);
+            return result.ToHttpResult(location: string.Empty);
 
         })
             .Produces<Result<string>>()
@@ -77,14 +76,16 @@ public class ProductModule : ICarterModule
 
         // UPDATE PRODUCT
 
-        app.MapPut(string.Empty, async (
+        app.MapPut("{id:guid}", async (
+            Guid id,
             ProductUpdateDto request,
             IProductService _service,
             CancellationToken cancellationToken) =>
         {
+            request = request with { Id = id };
             var result = await _service.UpdateAsync(request, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.StatusCode(result.StatusCode);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<string>>()
@@ -100,7 +101,7 @@ public class ProductModule : ICarterModule
         {
             var result = await _service.DeleteAsync(id, cancellationToken);
 
-            return result.IsSuccessful ? Results.Ok(result) : Results.NotFound(result);
+            return result.ToHttpResult();
 
         })
             .Produces<Result<string>>()

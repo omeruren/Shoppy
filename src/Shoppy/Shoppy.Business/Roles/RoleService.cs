@@ -55,7 +55,7 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
         Role? role = await _roles.FindAsync(id, cancellationToken);
 
         if (role is null)
-            return Result<Role>.Failure(404, "Role not found.");
+            return Result<Role>.Failure(404, ErrorMessages.Role.NotFound);
 
         return role;
     }
@@ -67,7 +67,7 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
         bool isExists = await _roles.AnyAsync(r => r.Name == request.Name, cancellationToken);
 
         if (isExists)
-            return Result<string>.Failure(409, "Role is already exists.");
+            return Result<string>.Failure(409, ErrorMessages.Role.AlreadyExists);
 
         Role role = request.Adapt<Role>();
 
@@ -77,7 +77,7 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
 
         _cache.Remove(CacheKeyPrefix);
 
-        return "Role created.";
+        return Result<string>.Success("Role created.", 201);
     }
 
 
@@ -87,14 +87,14 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
         Role? role = await _roles.FindAsync(request.Id, cancellationToken);
 
         if (role is null)
-            return Result<string>.Failure(404, "Role not found.");
+            return Result<string>.Failure(404, ErrorMessages.Role.NotFound);
 
         if (role.Name != request.Name)
         {
             bool isNameExists = await _roles.AnyAsync(r => r.Name == request.Name, cancellationToken);
 
             if (isNameExists)
-                return Result<string>.Failure(409, "Role name is already exists.");
+                return Result<string>.Failure(409, ErrorMessages.Role.NameAlreadyExists);
 
             request.Adapt(role);
 
@@ -119,7 +119,7 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
         Role? role = await _roles.FindAsync([id], cancellationToken);
 
         if (role is null)
-            return Result<string>.Failure(404, "Role not found.");
+            return Result<string>.Failure(404, ErrorMessages.Role.NotFound);
 
         _roles.Remove(role);
 

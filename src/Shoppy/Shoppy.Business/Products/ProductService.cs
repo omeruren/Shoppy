@@ -1,8 +1,7 @@
-﻿using Mapster;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Products.DataTransferObjects;
 using Shoppy.DataAccess.Context;
@@ -10,35 +9,21 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Products;
 
-public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _cache) : IProductService
+public sealed class ProductService(ApplicationDbContext _context, ICacheService _cacheService) : IProductService
 {
     private const string CacheKeyPrefix = "products";
     private readonly DbSet<Product> _products = _context.Set<Product>();
 
-
-    private static CancellationTokenSource _cacheResetToken = new();
-
-    private static void InvalidateCache()
-    {
-        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
-        oldToken.Cancel();
-        oldToken.Dispose();
-    }
-
-    private static string BuildCacheKey(PaginationRequestDto request)
-        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
-
     // Get All Products
     public async Task<Result<PaginationResultDto<ProductResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        string cacheKey = BuildCacheKey(request);
-        var products = _cache.Get<PaginationResultDto<ProductResultDto>>(cacheKey);
-
-        if (products is null)
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
         {
-
-            products = await _products
+            return await _products
                 .AsNoTracking()
+                .Where(p => string.IsNullOrWhiteSpace(request.SearchTerm)
+                    || p.Name.Contains(request.SearchTerm)
+                    || (p.Description != null && p.Description.Contains(request.SearchTerm)))
                 .LeftJoin(_context.Categories, p => p.CategoryId, p => p.Id, (product, category) => new { product, category })
                 .Select(s => new ProductResultDto
                 {
@@ -55,15 +40,7 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
                 })
                 .OrderBy(p => p.Name)
                 .WithPagination(request, cancellationToken);
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-              .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-              .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
-
-            _cache.Set(cacheKey, products, cacheOptions);
-        }
-
-        return products;
+        }, TimeSpan.FromMinutes(5));
     }
 
     // Get Product By Id
@@ -90,7 +67,7 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
             .FirstOrDefaultAsync(cancellationToken);
 
         if (product is null)
-            return Result<ProductResultDto>.Failure(404, "Product not found.");
+            return Result<ProductResultDto>.Failure(404, ErrorMessages.Product.NotFound);
 
         return product;
     }
@@ -101,17 +78,28 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
         bool isExists = await _products.AnyAsync(p => p.Name.Equals(request.Name), cancellationToken);
 
         if (isExists)
-            return Result<string>.Failure(409, "Product is already exists.");
+            return Result<string>.Failure(409, ErrorMessages.Product.AlreadyExists);
 
         var product = request.Adapt<Product>();
 
         _products.Add(product);
 
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Broad catch: Product.Name has a single unique index, so a concurrent duplicate-name
+            // insert racing past the AnyAsync check above is the overwhelmingly likely cause here.
+            // A genuine FK violation (invalid CategoryId) would also land here and be misreported
+            // as a 409 rather than a more specific error — accepted tradeoff given the simpler check.
+            return Result<string>.Failure(409, ErrorMessages.Product.AlreadyExists);
+        }
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
-        return "Product Created.";
+        return Result<string>.Success("Product created.", 201);
     }
 
     // Update Product
@@ -120,7 +108,7 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
         Product? product = await _products.FindAsync([request.Id], cancellationToken);
 
         if (product is null)
-            return Result<string>.Failure(404, "Product not found.");
+            return Result<string>.Failure(404, ErrorMessages.Product.NotFound);
 
         if (product.Name != request.Name)
         {
@@ -128,7 +116,7 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
             bool isExists = await _products.AnyAsync(p => p.Name.Equals(request.Name), cancellationToken);
 
             if (isExists)
-                return Result<string>.Failure(409, "Product is already exists.");
+                return Result<string>.Failure(409, ErrorMessages.Product.AlreadyExists);
         }
 
         request.Adapt(product);
@@ -138,9 +126,17 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
 
 
         _products.Update(product);
-        await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            return Result<string>.Failure(409, ErrorMessages.Product.AlreadyExists);
+        }
+
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Product updated.";
     }
@@ -151,14 +147,13 @@ public sealed class ProductService(ApplicationDbContext _context, IMemoryCache _
         Product? product = await _products.FindAsync([id], cancellationToken);
 
         if (product is null)
-            return Result<string>.Failure(404, "Product not found.");
+            return Result<string>.Failure(404, ErrorMessages.Product.NotFound);
 
         _products.Remove(product);
 
         await _context.SaveChangesAsync(cancellationToken);
 
-
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Product deleted.";
     }

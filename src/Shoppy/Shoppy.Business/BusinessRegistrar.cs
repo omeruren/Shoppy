@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Shoppy.Business.Auth;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Categories;
 using Shoppy.Business.OrderItems;
 using Shoppy.Business.Orders;
@@ -18,6 +19,7 @@ public static class BusinessRegistrar
     {
         // In Memory Cache
         services.AddMemoryCache();
+        services.AddSingleton<ICacheService, CacheService>();
 
         // Service registrations
         services.AddScoped<ICategoryService, CategoryService>();

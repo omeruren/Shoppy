@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Shoppy.Entity.Abstraction;
 using Shoppy.Entity.Models;
 using System.Reflection;
@@ -57,56 +58,100 @@ public sealed class ApplicationDbContext : IdentityDbContext<User, IdentityRole<
 
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
-        var entries = ChangeTracker.Entries<BaseEntity>();
+        Guid? userId = ResolveCurrentUserId();
 
-        Guid? userId = null;
+        var rootEntries = ChangeTracker.Entries<BaseEntity>().ToList();
+        var visited = new HashSet<object>();
 
-        if (_httpContextAccessor?.HttpContext?.User?.Identity?.IsAuthenticated == true)
-        {
-            var userIdClaim = _httpContextAccessor.HttpContext.User.Claims.FirstOrDefault(u => u.Type == ClaimTypes.NameIdentifier)?.Value;
+        foreach (var entry in rootEntries)
+            ProcessEntry(entry, userId, visited);
 
-            if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var parsedId))
-                userId = parsedId;
-
-        }
-
-        foreach (var entry in entries)
-        {
-            if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
-            {
-                if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
-                    entry.Property(p => p.RowVersion).CurrentValue = Guid.NewGuid().ToByteArray();
-            }
-            if (entry.State == EntityState.Added)
-            {
-                entry.Property(x => x.CreatedAt).CurrentValue = DateTimeOffset.UtcNow;
-
-                if (userId.HasValue)
-                    entry.Property(x => x.CreatedBy).CurrentValue = userId.Value;
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                entry.Property(x => x.UpdatedAt).CurrentValue = DateTimeOffset.UtcNow;
-
-                if (userId.HasValue)
-                    entry.Property(x => x.UpdatedBy).CurrentValue = userId.Value;
-            }
-            else if (entry.State == EntityState.Deleted)
-            {
-                if (!entry.Property(x => x.IsDeleted).CurrentValue)
-                {
-                    entry.Property(x => x.DeletedAt).CurrentValue = DateTimeOffset.UtcNow;
-
-                    entry.Property(x => x.IsDeleted).CurrentValue = true;
-
-                    entry.State = EntityState.Modified;
-
-                    if (userId.HasValue)
-                        entry.Property(x => x.DeletedBy).CurrentValue = userId.Value;
-                }
-            }
-
-        }
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private Guid? ResolveCurrentUserId()
+    {
+        if (_httpContextAccessor?.HttpContext?.User?.Identity?.IsAuthenticated != true)
+            return null;
+
+        var userIdClaim = _httpContextAccessor.HttpContext.User.Claims.FirstOrDefault(u => u.Type == ClaimTypes.NameIdentifier)?.Value;
+
+        return !string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var parsedId) ? parsedId : null;
+    }
+
+    private void ProcessEntry(EntityEntry<BaseEntity> entry, Guid? userId, HashSet<object> visited)
+    {
+        if (!visited.Add(entry.Entity))
+            return; // cycle guard
+
+        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
+        {
+            if (entry.State == EntityState.Added || entry.State == EntityState.Modified)
+                entry.Property(p => p.RowVersion).CurrentValue = Guid.NewGuid().ToByteArray();
+        }
+
+        if (entry.State == EntityState.Added)
+        {
+            entry.Property(x => x.CreatedAt).CurrentValue = DateTimeOffset.UtcNow;
+
+            if (userId.HasValue)
+                entry.Property(x => x.CreatedBy).CurrentValue = userId.Value;
+        }
+        else if (entry.State == EntityState.Modified)
+        {
+            entry.Property(x => x.UpdatedAt).CurrentValue = DateTimeOffset.UtcNow;
+
+            if (userId.HasValue)
+                entry.Property(x => x.UpdatedBy).CurrentValue = userId.Value;
+        }
+        else if (entry.State == EntityState.Deleted)
+        {
+            if (!entry.Property(x => x.IsDeleted).CurrentValue)
+            {
+                entry.Property(x => x.DeletedAt).CurrentValue = DateTimeOffset.UtcNow;
+
+                entry.Property(x => x.IsDeleted).CurrentValue = true;
+
+                entry.State = EntityState.Modified;
+
+                if (userId.HasValue)
+                    entry.Property(x => x.DeletedBy).CurrentValue = userId.Value;
+
+                CascadeSoftDeleteToLoadedChildren(entry, userId, visited);
+            }
+        }
+    }
+
+    // Soft-deleting an entity via ChangeTracker doesn't hit the DB's ON DELETE CASCADE
+    // (the row is UPDATEd, not DELETEd), so loaded child collections must be cascaded manually here.
+    private void CascadeSoftDeleteToLoadedChildren(EntityEntry<BaseEntity> parentEntry, Guid? userId, HashSet<object> visited)
+    {
+        foreach (var navigation in parentEntry.Metadata.GetNavigations().Where(n => n.IsCollection))
+        {
+            var collectionEntry = parentEntry.Collection(navigation.Name);
+
+            if (!collectionEntry.IsLoaded || collectionEntry.CurrentValue is null)
+                continue; // only cascade into navigations the caller actually loaded via .Include()
+
+            foreach (var child in collectionEntry.CurrentValue.Cast<object>().ToList())
+            {
+                if (child is not BaseEntity childEntity)
+                    continue;
+
+                var childEntry = Entry(childEntity);
+
+                if (childEntry.State == EntityState.Added)
+                {
+                    // Never persisted — nothing to soft-delete in the DB; just stop tracking it.
+                    childEntry.State = EntityState.Detached;
+                    continue;
+                }
+
+                if (childEntry.State != EntityState.Deleted)
+                    childEntry.State = EntityState.Deleted;
+
+                ProcessEntry(childEntry, userId, visited);
+            }
+        }
     }
 }

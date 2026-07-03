@@ -465,21 +465,21 @@ Bu oturumdaki Faz 0/1 çalışması tamamlandı: build çalışıyor, permission
 | 🟡 P2 | WithTreadId typo (+ WithMachineName da aynı sebeple bozuktu) | Thread ID / MachineName loglanmıyor | ✅ Düzeltildi |
 | 🟡 P2 | `cancelllationToken` typo (8 yer) | Kod kalitesi | ✅ Düzeltildi |
 | 🟡 P2 | `OrdertemConfiguration` typo + yanlış dosya | Kod kalitesi | ✅ Düzeltildi |
-| 🟠 P1 | Static cache token | Thread safety / test izolasyon | 🔲 Açık (Faz 2) |
-| 🟠 P1 | SearchTerm çalışmıyor | Feature eksik | 🔲 Açık (Faz 2) |
+| 🟠 P1 | Static cache token | Thread safety / test izolasyon | ✅ Düzeltildi (`ICacheService` singleton) |
+| 🟠 P1 | SearchTerm çalışmıyor | Feature eksik | ✅ Düzeltildi (Product/Category/Order/OrderItem) |
 | 🟠 P1 | RefreshToken.Token index yok | ~~Table scan~~ | ✅ Zaten çözülmüş (doküman güncel değildi) |
-| 🟠 P1 | Duplicate cache pattern x4 | Bakım zorluğu | 🔲 Açık (Faz 2) |
-| 🟡 P1 | `OrderService.UpdateAsync` Items reconciliation bozuk | Veri bütünlüğü riski (yinelenen/öksüz satır) | 🔲 Açık (Faz 2) — bu oturumda tespit edildi |
-| 🟡 P1 | Order soft-delete, OrderItem'lara cascade olmuyor | Öksüz "aktif" OrderItem'lar | 🔲 Açık (Faz 2) — bu oturumda kök nedeni netleşti |
-| 🟡 P2 | PUT endpoint URL'de ID yok | REST ihlali | 🔲 Açık (Faz 2) |
-| 🟡 P2 | Magic strings | Bakım / test kırılganlığı | 🔲 Açık (Faz 2) |
+| 🟠 P1 | Duplicate cache pattern x4 | Bakım zorluğu | ✅ Düzeltildi (`ICacheService`) |
+| 🟡 P1 | `OrderService.UpdateAsync` Items reconciliation bozuk | Veri bütünlüğü riski (yinelenen/öksüz satır) | ✅ Düzeltildi |
+| 🟡 P1 | Order soft-delete, OrderItem'lara cascade olmuyor | Öksüz "aktif" OrderItem'lar | ✅ Düzeltildi (`SaveChangesAsync` interceptor) |
+| 🟡 P2 | PUT endpoint URL'de ID yok | REST ihlali | ✅ Düzeltildi (`{id}` route param) |
+| 🟡 P2 | Magic strings | Bakım / test kırılganlığı | ✅ Düzeltildi (`ErrorMessages`) |
 | 🟡 P2 | CORS hardcoded | Configuration | 🔲 Açık |
 | 🟡 P2 | InMemory cache | Ölçeklenemiyor | 🔲 Açık (Faz 3) |
 | 🟡 P2 | Business'ta logging yok | Observability | 🔲 Açık (Faz 3) |
 | 🟡 P2 | Docker desteği yok | Deployment | 🔲 Açık (Faz 4) |
 | 🔵 P3 | Sorting desteği yok | UX | 🔲 Açık (Faz 3) |
 | 🔵 P3 | OpenTelemetry console-only | Observability | 🔲 Açık (Faz 3) |
-| 🔵 P3 | ProductService `AnyAsync`+`SaveChanges` race condition | Unhandled 500 riski | 🔲 Açık (Faz 2/3) |
+| 🔵 P3 | ProductService `AnyAsync`+`SaveChanges` race condition | Unhandled 500 riski | ✅ Düzeltildi (`DbUpdateException` → 409) |
 
 ---
 
@@ -508,19 +508,29 @@ Bu oturumdaki Faz 0/1 çalışması tamamlandı: build çalışıyor, permission
 
 ---
 
-### 🟠 Faz 2 — Mimari İyileştirmeler (tahmini ~2 hafta, bu oturuma dahil değil)
+### ✅ Faz 2 — Mimari İyileştirmeler (bu oturumda tamamlandı)
 
-- [ ] `ICacheService` abstraction (static field kaldır, duplicate code temizle)
-- [ ] `ErrorMessages` static class (magic strings)
-- [ ] `Result<T>.ToHttpResult()` extension method (tutarlı response)
-- [ ] SearchTerm filter implementasyonu (tüm GetAll)
-- [ ] PUT endpointlerde `{id}` URL parametresi
-- [ ] `OrderService.UpdateAsync` Items reconciliation'ı düzelt (bu oturumda tespit edildi)
-- [ ] Order soft-delete → OrderItem cascade mantığını `SaveChangesAsync` interceptor'ına ekle (bu oturumda tespit edildi)
-- [ ] `ProductService.CreateAsync` TOCTOU: `DbUpdateException` yakalanıp 409'a çevrilmeli
-- [ ] Repository pattern veya CQRS + MediatR değerlendirmesi
+- [x] `ICacheService` abstraction (static field kaldır, duplicate code temizle)
+- [x] `ErrorMessages` static class (magic strings)
+- [x] `Result<T>.ToHttpResult()` extension method (tutarlı response)
+- [x] SearchTerm filter implementasyonu (tüm GetAll)
+- [x] PUT endpointlerde `{id}` URL parametresi
+- [x] `OrderService.UpdateAsync` Items reconciliation'ı düzelt (bu oturumda tespit edildi)
+- [x] Order soft-delete → OrderItem cascade mantığını `SaveChangesAsync` interceptor'ına ekle (bu oturumda tespit edildi)
+- [x] `ProductService.CreateAsync` TOCTOU: `DbUpdateException` yakalanıp 409'a çevrilmeli
+- [x] Repository pattern veya CQRS + MediatR değerlendirmesi (yazılı değerlendirme — bkz. aşağıdaki alt bölüm, kod değişikliği yapılmadı)
 
-**Beklenen Kazanım:** API tutarlılığı, test edilebilirlik artışı, veri bütünlüğü.
+**Kazanım:** `ICacheService` singleton'ı 4 serviste tekrarlanan `static CancellationTokenSource` deseni yerine geldi; `ErrorMessages` tüm hardcoded hata string'lerini (ve "is already exists" gramer tutarsızlığını) merkezileştirdi; `ToHttpResult()` modüller arası tutarsız `Results.Conflict/StatusCode/NotFound/Problem` karışımını `result.StatusCode`'a güvenen tek bir mapping'e indirdi; SearchTerm artık Product/Category/Order/OrderItem'da gerçekten filtreliyor; PUT endpoint'leri `{id}` route parametresi alıyor (route id source of truth); `OrderService.UpdateAsync` artık `.Include(o => o.Items)` ile yükleyip Items'ı reconcile ediyor (whole-collection Mapster Adapt kaldırıldı — yinelenen/öksüz satır riski kapandı); `ApplicationDbContext.SaveChangesAsync` artık yüklü child collection'ları soft-delete cascade ediyor; `ProductService.CreateAsync`/`UpdateAsync` artık `DbUpdateException`'ı yakalayıp 409'a çeviriyor.
+
+#### Faz 2 — Değerlendirme: Repository/CQRS
+
+Bu oturumda kod değişikliği yapılmadı; sadece değerlendirme.
+
+Bu boyuttaki bir projede (~6-8 kaynak: Product, Category, Order, OrderItem, Role, User, UserRole — her biri tek-aggregate CRUD, en fazla tek seviye join) ne Repository/Unit-of-Work ne de MediatR/CQRS için somut bir acı noktası gözlemlenmedi. Klasik Repository gerekçesi (persistence engine'in değiştirilebilir olması) burada geçerli değil — proje SQL Server + EF Core'a sıkı bağlı ve bunun değişmesi planlanmıyor. Klasik CQRS gerekçesi (read/write model ayrışması, karmaşık query fan-out) da yok — her `GetAllAsync` zaten basit bir sayfalanmış projeksiyon. Test edilebilirlik açısından da bir kazanç yok: `test/Shoppy.UnitTests/Services/*Tests.cs` zaten `ApplicationDbContext`'i EF InMemory provider'a karşı doğrudan kurup gerçek LINQ sorgu davranışını test ediyor; bir repository abstraction'ı bunu ölçülebilir şekilde iyileştirmez, sadece her aggregate için bir interface + implementasyon ekler. Bu faz zaten cross-cutting concern'lerin (cache) repository/mediator olmadan da temiz bir şekilde çözülebildiğinin kanıtı (`ICacheService`).
+
+Business→DataAccess bağımlılık yönü (§1'de "Clean Architecture'da ters olmalı" olarak işaretlenmiş) bir Repository/UoW katmanıyla formalize edilebilirdi, ama bu proje ölçeğinde bu inversiyon büyük ölçüde törensel kalır — ikinci bir persistence teknolojisi veya gerçekten bağımsız bir domain katmanı ihtiyacı doğana kadar ertelenebilir.
+
+**Öneri:** Faz 2 kapsamında Repository/CQRS'e geçilmedi, mevcut direkt-`DbContext` servis deseni korundu. Bu kararı şu durumlar oluşursa tekrar gözden geçirin: (a) tek bir işlemin birden fazla aggregate root'u tek servis metodu içine sığmayacak şekilde orkestre etmesi gerekiyorsa, (b) EF Core bağımlılığının gerçekten değiştirilebilir olması gerekiyorsa, (c) ekip büyüyüp per-service duplication (auth, logging, validation, caching) bir pipeline'ın ölçülebilir şekilde azaltacağı bir bakım yüküne dönüşüyorsa.
 
 ---
 

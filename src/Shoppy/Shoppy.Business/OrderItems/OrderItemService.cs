@@ -1,8 +1,7 @@
-﻿using Mapster;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Primitives;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.DataAccess.Context;
@@ -10,65 +9,43 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.OrderItems;
 
-public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache) : IOrderItemService
+public sealed class OrderItemService(ApplicationDbContext _context, ICacheService _cacheService) : IOrderItemService
 {
     private const string CacheKeyPrefix = "orderItems";
 
     private readonly DbSet<OrderItem> _orderItems = _context.Set<OrderItem>();
 
-    // Cache invalidation via CancellationTokenSource
-    private static CancellationTokenSource _cacheResetToken = new();
-
-    private static void InvalidateCache()
-    {
-        var oldToken = Interlocked.Exchange(ref _cacheResetToken, new CancellationTokenSource());
-        oldToken.Cancel();
-        oldToken.Dispose();
-    }
-
-    private static string BuildCacheKey(PaginationRequestDto request)
-        => $"{CacheKeyPrefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
-
-
     // GET ALL ITEMS
 
     public async Task<Result<PaginationResultDto<OrderItemResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        var cacheKey = BuildCacheKey(request);
-
-        var orderItems = _cache.Get<PaginationResultDto<OrderItemResultDto>>(cacheKey);
-
-        if (orderItems is null)
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
         {
+            return await _orderItems
+                .AsNoTracking()
+                .Include(i => i.Product)
+                .Where(oi => string.IsNullOrWhiteSpace(request.SearchTerm) || oi.Product.Name.Contains(request.SearchTerm))
+                .Select(i => new OrderItemResultDto
+                {
+                    Id = i.Id,
+                    ProductId = i.ProductId,
+                    Quantity = i.Quantity,
 
-            orderItems = await _orderItems.AsNoTracking().Include(i => i.Product).Select(i => new OrderItemResultDto
-            {
-                Id = i.Id,
-                ProductId = i.ProductId,
-                Quantity = i.Quantity,
+                    CreatedAt = i.CreatedAt,
+                    UpdatedAt = i.UpdatedAt,
 
-                CreatedAt = i.CreatedAt,
-                UpdatedAt = i.UpdatedAt,
+                    IsDeleted = i.IsDeleted,
+                    DeletedAt = i.DeletedAt
 
-                IsDeleted = i.IsDeleted,
-                DeletedAt = i.DeletedAt
-
-            })
-               .WithPagination(request, cancellationToken);
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(5))
-                .AddExpirationToken(new CancellationChangeToken(_cacheResetToken.Token));
-
-            _cache.Set(cacheKey, orderItems, cacheOptions);
-        }
-        return orderItems;
+                })
+                .WithPagination(request, cancellationToken);
+        }, TimeSpan.FromMinutes(5));
     }
 
     // GET ITEM BY ID
     public async Task<Result<OrderItemResultDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
-        var orderItems = await _orderItems.AsNoTracking().Include(i => i.Product).Select(i => new OrderItemResultDto
+        var orderItem = await _orderItems.AsNoTracking().Include(i => i.Product).Where(i => i.Id == id).Select(i => new OrderItemResultDto
         {
             Id = i.Id,
             ProductId = i.ProductId,
@@ -82,10 +59,10 @@ public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache
 
         }).FirstOrDefaultAsync(cancellationToken);
 
-        if (orderItems is null)
-            return Result<OrderItemResultDto>.Failure("Order item not found.");
+        if (orderItem is null)
+            return Result<OrderItemResultDto>.Failure(404, ErrorMessages.OrderItem.NotFound);
 
-        return orderItems;
+        return orderItem;
     }
 
     // CREATE ITEM
@@ -98,9 +75,9 @@ public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
-        return "Order item created.";
+        return Result<string>.Success("Order item created.", 201);
     }
 
 
@@ -111,7 +88,7 @@ public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache
         var orderItem = await _orderItems.FindAsync([request.Id], cancellationToken);
 
         if (orderItem is null)
-            return Result<string>.Failure(404, "Order item not found.");
+            return Result<string>.Failure(404, ErrorMessages.OrderItem.NotFound);
 
         request.Adapt(orderItem);
 
@@ -121,7 +98,7 @@ public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache
         _orderItems.Update(orderItem);
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Order item updated.";
     }
@@ -132,12 +109,12 @@ public class OrderItemService(ApplicationDbContext _context, IMemoryCache _cache
         var orderItem = await _orderItems.FindAsync([id], cancellationToken);
 
         if (orderItem is null)
-            return Result<string>.Failure(404, "Order item not found.");
+            return Result<string>.Failure(404, ErrorMessages.OrderItem.NotFound);
 
         _orderItems.Remove(orderItem);
         await _context.SaveChangesAsync(cancellationToken);
 
-        InvalidateCache();
+        _cacheService.InvalidatePrefix(CacheKeyPrefix);
 
         return "Order item deleted.";
     }

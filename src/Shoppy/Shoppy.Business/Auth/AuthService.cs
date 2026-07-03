@@ -18,17 +18,17 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         var user = await _userManager.FindByNameAsync(request.UserName);
 
         if (user is null)
-            return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
 
         if (user.IsDeleted)
-            return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
 
 
 
         var result = await _userManager.CheckPasswordAsync(user, request.Password);
 
         if (!result)
-            return Result<LoginResponseDto>.Failure(401, "User name or password is incorrect.");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
 
 
         var roles = await _context.AppUserRoles
@@ -75,19 +75,19 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
             .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken, cancellationToken);
 
         if (storedToken is null)
-            return Result<LoginResponseDto>.Failure(401, "Invalid refresh token.");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidRefreshToken);
 
         // check if token is revoked
         if (storedToken.IsRevoked)
-            return Result<LoginResponseDto>.Failure(401, "Refresh token has been revoked.");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.RefreshTokenRevoked);
 
         // check if token is expired
         if (storedToken.ExpiresAt < DateTimeOffset.UtcNow)
-            return Result<LoginResponseDto>.Failure(401, "Refresh token has expired.");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.RefreshTokenExpired);
 
         // check if user is deleted
         if (storedToken.User.IsDeleted)
-            return Result<LoginResponseDto>.Failure(401, "User account is deactivated");
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.AccountDeactivated);
 
         // revoke old token
         storedToken.IsRevoked = true;
@@ -163,7 +163,7 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
 
             user.ClearPasswordResetCode();
             await _userManager.UpdateAsync(user);
-            return Result<string>.Failure(500, "Failed to sent reset password reset email. Please try again later.");
+            return Result<string>.Failure(500, ErrorMessages.Auth.EmailSendFailure);
         }
 
         return Result<string>.Success("If this email is registered, a password reset code has been sent.");
@@ -174,13 +174,13 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         var user = await _userManager.FindByEmailAsync(request.Email);
 
         if (user is null || user.IsDeleted)
-            return Result<string>.Failure(404, "User not found.");
+            return Result<string>.Failure(404, ErrorMessages.User.NotFound);
 
         if (string.IsNullOrEmpty(user.PasswordResetCode) || user.PasswordResetCode != request.Code)
-            return Result<string>.Failure(400, "Invalid reset code.");
+            return Result<string>.Failure(400, ErrorMessages.Auth.InvalidResetCode);
 
         if (user.PasswordResetCodeExpires is null || user.PasswordResetCodeExpires < DateTimeOffset.UtcNow)
-            return Result<string>.Failure(400, "Invalid reset code.");
+            return Result<string>.Failure(400, ErrorMessages.Auth.InvalidResetCode);
 
         // change password directly without identity's token provider system since we have our own OTP verification above
         var removeResult = await _userManager.RemovePasswordAsync(user);
