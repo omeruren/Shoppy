@@ -1,4 +1,5 @@
 ﻿using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shoppy.Business.Auth.DataTransferObjects;
@@ -6,15 +7,15 @@ using Shoppy.Business.BaseResult;
 using Shoppy.Business.Categories.DataTransferObjects;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Products.DataTransferObjects;
-using Shoppy.Business.Users.DataTransferObjects;
 using Shoppy.DataAccess.Context;
+using Shoppy.Entity.Models;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
 namespace Shoppy.IntegrationTests;
 
-public class ApiIntegrationTests
+public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
@@ -26,41 +27,40 @@ public class ApiIntegrationTests
         _client = _factory.CreateClient();
     }
 
+    // There is no public self-registration endpoint — POST /api/v1/users requires the
+    // Users.Create permission — so test users are seeded directly through UserManager
+    // and granted the Admin role, then a real token is obtained via the login endpoint.
     private async Task<string> GetAuthenticatedTokenAsync(string username, string password)
     {
-        // Register the user
-
-        var registerDto = new UserCreateDto("John", "Doe", username, $"{username}@example.com", password);
-
-        var regResponseDto = await _client.PostAsJsonAsync("/api/v1/users", registerDto);
-
-        regResponseDto.StatusCode.Should().Match(s => s == HttpStatusCode.Created || s == HttpStatusCode.Conflict || s == HttpStatusCode.OK);
-
-        // Seed Admin Role in Db if not exists
-
         using (var scope = _factory.Services.CreateScope())
         {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+            var user = await userManager.FindByNameAsync(username);
+
+            if (user is null)
+            {
+                user = User.Create("John", "Doe", username, $"{username}@example.com");
+                var createResult = await userManager.CreateAsync(user, password);
+                createResult.Succeeded.Should().BeTrue();
+            }
 
             var adminRole = await context.AppRoles.FirstOrDefaultAsync(r => r.Name == "Admin");
 
             if (adminRole is null)
             {
-                adminRole = new Entity.Models.Role { Name = "Admin" };
+                adminRole = new Role { Name = "Admin" };
                 context.AppRoles.Add(adminRole);
                 await context.SaveChangesAsync();
             }
 
-            var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == username);
+            var hasRole = await context.AppUserRoles.AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == adminRole.Id);
 
-            if (username != null)
+            if (!hasRole)
             {
-                var hasRole = await context.AppUserRoles.AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == adminRole.Id);
-
-                if (!hasRole)
-                {
-                    context.AppUserRoles.Add(new Entity.Models.UserRole { UserId = user.Id, RoleId = adminRole.Id });
-                }
+                context.AppUserRoles.Add(new UserRole { UserId = user.Id, RoleId = adminRole.Id });
+                await context.SaveChangesAsync();
             }
         }
 

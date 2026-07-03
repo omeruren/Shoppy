@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Shoppy.DataAccess.Context;
 using Testcontainers.MsSql;
 using Testcontainers.Redis;
@@ -18,10 +18,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     {
         await Task.WhenAll(_sqlContainer.StartAsync(), _redisContainer.StartAsync());
 
-        // run migrations to setup database schema
-        using var scope = Services.CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await context.Database.MigrateAsync();
+        // Migrate against a standalone context BEFORE the host starts: accessing the
+        // WebApplicationFactory's Services property boots the full Program.cs pipeline,
+        // which runs RolePermissionSeeder against the database on startup — that seeder
+        // needs the schema to already exist, so migration can't happen through Services.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(_sqlContainer.GetConnectionString())
+            .Options;
+
+        await using var migrationContext = new ApplicationDbContext(options, new HttpContextAccessor());
+        await migrationContext.Database.MigrateAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
