@@ -58,11 +58,12 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     }
 }
 
-// The "auth-fixed" rate-limit policy is a single global, non-partitioned bucket shared
-// by every request the app instance handles. Functional auth-flow tests (login/refresh
-// rotation/permission checks) each make a handful of real HTTP calls against /api/v1/auth/*
-// and would otherwise intermittently collide with that shared bucket. Rate-limiting
-// behavior itself is covered separately by RateLimitingIntegrationTests against the
+// The "auth-fixed" rate-limit policy is partitioned per client IP, but every in-memory
+// TestServer request reports the same loopback IP — so within one test class, all auth
+// calls still share a single bucket. Functional auth-flow tests (login/refresh rotation/
+// permission checks) each make a handful of real HTTP calls against /api/v1/auth/* and
+// would otherwise intermittently collide with that shared bucket. Rate-limiting behavior
+// itself is covered separately by RateLimitingIntegrationTests against the
 // production-configured CustomWebApplicationFactory.
 public sealed class RelaxedAuthRateLimitWebApplicationFactory : CustomWebApplicationFactory
 {

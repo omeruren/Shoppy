@@ -15,6 +15,7 @@ using Shoppy.WebAPI.Handlers;
 using Shoppy.WebAPI.MiddleWares;
 using Shoppy.WebAPI.Seed;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,22 +68,33 @@ builder.Services.AddResponseCompression(x => x.EnableForHttps = true);
 // RATE Limiter
 builder.Services.AddRateLimiter(x =>
 {
+    // Rate-limit rejections are a client-side "slow down" signal, not a server outage —
+    // 429 is the semantically correct status (the ASP.NET Core default is 503).
+    x.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
     x.AddFixedWindowLimiter("fixed", cfr =>
     {
         cfr.PermitLimit = builder.Configuration.GetValue("RateLimiting:Fixed:PermitLimit", 50);
         cfr.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:Fixed:WindowSeconds", 5));
         cfr.QueueLimit = 50;
-        cfr.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        cfr.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
     });
 });
 
 builder.Services.AddRateLimiter(x =>
 {
-    x.AddFixedWindowLimiter("auth-fixed", cfr =>
+    // Partitioned per client IP — a single fixed-window bucket shared by every caller
+    // would let one abusive client 503/429 every other user's login/refresh/reset attempts.
+    x.AddPolicy("auth-fixed", httpContext =>
     {
-        cfr.PermitLimit = builder.Configuration.GetValue("RateLimiting:AuthFixed:PermitLimit", 5);
-        cfr.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:AuthFixed:WindowSeconds", 1));
-        cfr.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        var partitionKey = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = builder.Configuration.GetValue("RateLimiting:AuthFixed:PermitLimit", 5),
+            Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:AuthFixed:WindowSeconds", 1)),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+        });
     });
 });
 
