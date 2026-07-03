@@ -12,6 +12,8 @@ using Shoppy.Business.Options;
 using Shoppy.Business.Services;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Shoppy.UnitTests.Services;
 
@@ -21,6 +23,11 @@ public class AuthServiceTests
     private readonly UserManager<User> _userManager;
     private readonly AuthService _service;
     private readonly User _user;
+
+    // Mirrors AuthService's private HashToken — refresh tokens are stored hashed, so
+    // tests need to hash a raw client-facing value the same way before querying by it.
+    private static string HashToken(string rawToken) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
 
     public AuthServiceTests()
     {
@@ -68,10 +75,11 @@ public class AuthServiceTests
 
         result.IsSuccessful.Should().BeTrue();
 
-        var stored = await _context.RefreshTokens.SingleAsync(rt => rt.Token == result.Data!.RefreshToken);
+        var stored = await _context.RefreshTokens.SingleAsync(rt => rt.Token == HashToken(result.Data!.RefreshToken));
         stored.FamilyId.Should().NotBe(Guid.Empty);
         stored.IsRevoked.Should().BeFalse();
         stored.ReplacedByToken.Should().BeNull();
+        stored.Token.Should().NotBe(result.Data!.RefreshToken, "the raw token must not be persisted as-is");
     }
 
     [Fact]
@@ -113,20 +121,20 @@ public class AuthServiceTests
     public async Task RefreshTokenAsync_Should_Rotate_Token_Within_Same_Family()
     {
         var login = await _service.LoginAsync(new LoginRequestDto(_user.UserName!, "password"), CancellationToken.None);
-        var originalToken = await _context.RefreshTokens.SingleAsync(rt => rt.Token == login.Data!.RefreshToken);
+        var originalToken = await _context.RefreshTokens.SingleAsync(rt => rt.Token == HashToken(login.Data!.RefreshToken));
         var originalFamilyId = originalToken.FamilyId;
 
         var refreshResult = await _service.RefreshTokenAsync(new RefreshTokenRequestDto(login.Data!.RefreshToken), CancellationToken.None);
 
         refreshResult.IsSuccessful.Should().BeTrue();
 
-        var oldToken = await _context.RefreshTokens.SingleAsync(rt => rt.Id == originalToken.Id);
-        oldToken.IsRevoked.Should().BeTrue();
-        oldToken.ReplacedByToken.Should().Be(refreshResult.Data!.RefreshToken);
-
-        var newToken = await _context.RefreshTokens.SingleAsync(rt => rt.Token == refreshResult.Data!.RefreshToken);
+        var newToken = await _context.RefreshTokens.SingleAsync(rt => rt.Token == HashToken(refreshResult.Data!.RefreshToken));
         newToken.FamilyId.Should().Be(originalFamilyId);
         newToken.IsRevoked.Should().BeFalse();
+
+        var oldToken = await _context.RefreshTokens.SingleAsync(rt => rt.Id == originalToken.Id);
+        oldToken.IsRevoked.Should().BeTrue();
+        oldToken.ReplacedByToken.Should().Be(newToken.Token);
     }
 
     [Fact]
@@ -134,7 +142,7 @@ public class AuthServiceTests
     {
         var login = await _service.LoginAsync(new LoginRequestDto(_user.UserName!, "password"), CancellationToken.None);
         var firstRefreshToken = login.Data!.RefreshToken;
-        var originalToken = await _context.RefreshTokens.SingleAsync(rt => rt.Token == firstRefreshToken);
+        var originalToken = await _context.RefreshTokens.SingleAsync(rt => rt.Token == HashToken(firstRefreshToken));
         var familyId = originalToken.FamilyId;
 
         // Rotate once (valid) — this revokes firstRefreshToken and issues a second, still-active one

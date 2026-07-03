@@ -6,11 +6,18 @@ using Shoppy.Business.BaseResult;
 using Shoppy.Business.Services;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Shoppy.Business.Auth;
 
 public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider, ApplicationDbContext _context, IEmailService _emailService, ILogger<AuthService> _logger) : IAuthService
 {
+    // Refresh tokens are stored hashed, not raw — a stolen DB dump alone shouldn't hand
+    // out directly-usable sessions. The client only ever sees the raw value.
+    private static string HashToken(string rawToken) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawToken)));
+
 
 
     // LOGIN
@@ -67,12 +74,13 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
 
         var loginResponse = _jwtProvider.CreateToken(user, roles, permissions);
 
-        // Save refresh token to database — login always starts a brand new token family
+        // Save refresh token to database — login always starts a brand new token family.
+        // Only the hash is persisted; loginResponse (returned to the client) still carries the raw value.
         var refreshToken = new RefreshToken
         {
             Id = Guid.CreateVersion7(),
             UserId = user.Id,
-            Token = loginResponse.RefreshToken,
+            Token = HashToken(loginResponse.RefreshToken),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             CreatedAt = DateTimeOffset.UtcNow,
             IsRevoked = false,
@@ -89,10 +97,11 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
 
     public async Task<Result<LoginResponseDto>> RefreshTokenAsync(RefreshTokenRequestDto request, CancellationToken cancellationToken)
     {
-        // Find the refresh token
+        // Find the refresh token — lookups are by hash, the client only ever sends the raw value.
+        var requestedTokenHash = HashToken(request.RefreshToken);
         var storedToken = await _context.RefreshTokens
             .Include(rt => rt.User)
-            .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken, cancellationToken);
+            .FirstOrDefaultAsync(rt => rt.Token == requestedTokenHash, cancellationToken);
 
         if (storedToken is null)
         {
@@ -155,12 +164,13 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         // Generate new tokens
         var loginResponse = _jwtProvider.CreateToken(storedToken.User, roles, permissions);
 
-        // Save new refresh token — carries the same FamilyId forward (rotation, not a new family)
+        // Save new refresh token — carries the same FamilyId forward (rotation, not a new family).
+        // Only the hash is persisted; loginResponse (returned to the client) still carries the raw value.
         var newRefreshToken = new RefreshToken
         {
             Id = Guid.CreateVersion7(),
             UserId = storedToken.UserId,
-            Token = loginResponse.RefreshToken,
+            Token = HashToken(loginResponse.RefreshToken),
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             CreatedAt = DateTimeOffset.UtcNow,
             IsRevoked = false,
