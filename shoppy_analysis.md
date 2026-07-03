@@ -585,7 +585,7 @@ OWASP Top 10:2021 + API Security Top 10:2023 kategorilerine göre kod okunarak y
 - **A07 Identification & Authentication (JWT)** — `JwtOptionsSetup` içinde issuer/audience/signing-key/lifetime validasyonlarının hepsi açık (`JwtOptions.cs:24-31`); refresh token'lar `RandomNumberGenerator` ile 64 byte kriptografik rastgelelik kullanıyor (`JwtProvider.cs:60-66`); access token TTL 1 saat, refresh token TTL 7 gün — makul.
 - **A09 Logging & Monitoring** — Business katmanında `ILogger` (Faz 3), Serilog request logging + correlation id, OpenTelemetry OTLP → Jaeger tracing.
 
-### 🔴 YENİ BULGU — Account Lockout Yapılandırılmış Ama Hiç Devrede Değil
+### ✅ YENİ BULGU (Düzeltildi) — Account Lockout Yapılandırılmış Ama Hiç Devrede Değildi
 
 `DataAccessRegistrar.cs:29-31` şunu yapılandırıyor:
 ```csharp
@@ -593,39 +593,39 @@ opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 opt.Lockout.MaxFailedAccessAttempts = 5;
 opt.Lockout.AllowedForNewUsers = true;
 ```
-Ama `AuthService.LoginAsync` (`AuthService.cs:35`) şifre kontrolünü doğrudan `_userManager.CheckPasswordAsync(user, request.Password)` ile yapıyor — bu metod lockout mekanizmasına hiç dokunmuyor. Identity'nin lockout'u normalde `SignInManager.PasswordSignInAsync` (veya elle `AccessFailedAsync`/`IsLockedOutAsync`/`ResetAccessFailedCountAsync` çağrıları) üzerinden çalışır; burada hiçbiri çağrılmıyor. **Sonuç: yapılandırılmış "5 başarısız denemede 15 dakika kilitle" korumasi tamamen ölü kod — sınırsız şifre denemesi mümkün** (auth-fixed rate limiter'ın genel hız sınırı dışında, hesap-bazlı hiçbir koruma yok).
+Ama `AuthService.LoginAsync` şifre kontrolünü doğrudan `_userManager.CheckPasswordAsync(user, request.Password)` ile yapıyordu — bu metod lockout mekanizmasına hiç dokunmuyordu. **Sonuç: yapılandırılmış "5 başarısız denemede 15 dakika kilitle" koruması tamamen ölü kod — sınırsız şifre denemesi mümkündü.**
 
-**DURUM:** 🔲 Açık — bu oturumun kapsamı dışında (davranış değişikliği gerektiriyor), gelecek bir faza bırakıldı.
+**DURUM:** ✅ Düzeltildi — `LoginAsync` artık şifre kontrolünden önce `IsLockedOutAsync` çağırıyor, yanlış şifrede `AccessFailedAsync` ile sayaç artıyor, başarılı girişte `ResetAccessFailedCountAsync` ile sıfırlanıyor. Yeni `ErrorMessages.Auth.AccountLockedOut` mesajı eklendi. 3 yeni unit test ile doğrulandı.
 
-### 🟠 YENİ BULGU — `auth-fixed` Rate Limiter Global ve Partition'sız
+### ✅ YENİ BULGU (Düzeltildi) — `auth-fixed` Rate Limiter Global ve Partition'sızdı
 
-`Program.cs`'deki `"auth-fixed"` policy (5 istek / 1 saniye) tüm `/api/v1/auth/*` endpoint'leri için **tek, paylaşılan, IP/kullanıcı bazında ayrılmamış bir sayaç** kullanıyor. Bu, entegrasyon testleri yazılırken (`RateLimitingIntegrationTests`) doğrulandı. Pratik sonucu: kötü niyetli veya hatalı davranan **tek bir client**, `/auth/login`'e saniyede 5'ten fazla istek atarak o saniyelik pencerede **uygulamadaki TÜM kullanıcıların** login/refresh/forgot-password/reset-password isteklerini 503 ile reddettirebilir — kendi kendine DoS. Doğru çözüm, `PartitionedRateLimiter` ile IP adresine (veya kimlik doğrulanmışsa kullanıcıya) göre partition'lamak.
+`Program.cs`'deki `"auth-fixed"` policy (5 istek / 1 saniye) tüm `/api/v1/auth/*` endpoint'leri için **tek, paylaşılan, IP/kullanıcı bazında ayrılmamış bir sayaç** kullanıyordu. Bu, entegrasyon testleri yazılırken (`RateLimitingIntegrationTests`) doğrulandı. Pratik sonucu: kötü niyetli veya hatalı davranan **tek bir client**, `/auth/login`'e saniyede 5'ten fazla istek atarak o saniyelik pencerede **uygulamadaki TÜM kullanıcıların** login/refresh/forgot-password/reset-password isteklerini reddettirebiliyordu — kendi kendine DoS.
 
-**DURUM:** 🔲 Açık — davranış değişikliği + muhtemelen ek test gerektiriyor, gelecek faza bırakıldı.
+**DURUM:** ✅ Düzeltildi — `RateLimitPartition.GetFixedWindowLimiter` ile client IP'sine göre partition'landı; bir client'ın flood'u artık yalnızca kendi partition'ını etkiliyor. Canlı/entegrasyon testleriyle doğrulandı.
 
-### 🟡 YENİ BULGU — Rate Limit Reddi 503 Dönüyor, Semantik Olarak 429 Olmalı
+### ✅ YENİ BULGU (Düzeltildi) — Rate Limit Reddi 503 Dönüyordu, Semantik Olarak 429 Olmalıydı
 
-`AddRateLimiter` çağrılarının hiçbirinde `RejectionStatusCode` ayarlanmamış, bu yüzden ASP.NET Core varsayılanı olan `503 Service Unavailable` kullanılıyor. HTTP semantiğine göre rate-limit reddi için doğru kod `429 Too Many Requests`'tir (503 "sunucu aşırı yüklü/bakımda" anlamına gelir ve istemcilere farklı bir retry stratejisi sinyali verir). Küçük, düşük riskli bir düzeltme: `RateLimiterOptions.RejectionStatusCode = StatusCodes.Status429TooManyRequests`.
+`AddRateLimiter` çağrılarının hiçbirinde `RejectionStatusCode` ayarlanmamıştı, bu yüzden ASP.NET Core varsayılanı olan `503 Service Unavailable` kullanılıyordu. HTTP semantiğine göre rate-limit reddi için doğru kod `429 Too Many Requests`'tir.
 
-**DURUM:** 🔲 Açık.
+**DURUM:** ✅ Düzeltildi — `RateLimiterOptions.RejectionStatusCode = StatusCodes.Status429TooManyRequests` eklendi (yukarıdaki partition düzeltmesiyle aynı commit'te).
 
-### 🟡 YENİ BULGU — API Dokümantasyonu Ortam Ayrımı Olmadan Açık
+### ✅ YENİ BULGU (Düzeltildi) — API Dokümantasyonu Ortam Ayrımı Olmadan Açıktı
 
-`Program.cs`'de `app.MapOpenApi()` ve `app.MapScalarApiReference()` herhangi bir `IsDevelopment()` kontrolü olmadan çağrılıyor — yani `/openapi` (tam şema) ve `/scalar` (interaktif dokümantasyon UI) **Production'da da erişilebilir**. Bu doğrudan bir açık değil (endpoint'lerin kendisi hâlâ authorization gerektiriyor) ama saldırı yüzeyini büyütüyor: route/DTO şemasının tamamı kimlik doğrulaması olmadan keşfedilebilir hale geliyor.
+`Program.cs`'de `app.MapOpenApi()` ve `app.MapScalarApiReference()` herhangi bir `IsDevelopment()` kontrolü olmadan çağrılıyordu — yani `/openapi` (tam şema) ve `/scalar` (interaktif dokümantasyon UI) Production'da da erişilebilirdi.
 
-**DURUM:** 🔲 Açık — üretimde bu endpoint'leri `IsDevelopment()` arkasına almak veya ayrı bir authorization policy ile korumak önerilir.
+**DURUM:** ✅ Düzeltildi — her ikisi de `app.Environment.IsDevelopment()` arkasına alındı. Canlı doğrulama: Production'da (gerçek bir SQL connection string env var ile verilerek) her ikisi de 404 dönüyor, `/health` çalışmaya devam ediyor; Development'ta ikisi de 200 dönüyor.
 
-### 🟡 YENİ BULGU (API4:2023 Unrestricted Resource Consumption) — Pagination Sınırsız
+### ✅ YENİ BULGU (Düzeltildi, API4:2023 Unrestricted Resource Consumption) — Pagination Sınırsızdı
 
-`PaginationRequestDto.PageSize`/`PageNumber` üzerinde hiçbir üst sınır veya pozitiflik kontrolü yok (`PaginationExtension.cs`). Bir client `pageSize=1000000` göndererek tek istekte büyük bir DB round-trip'i + bellek baskısı yaratabilir.
+`PaginationRequestDto.PageSize`/`PageNumber` üzerinde hiçbir üst sınır veya pozitiflik kontrolü yoktu. Bir client `pageSize=1000000` göndererek tek istekte büyük bir DB round-trip'i + bellek baskısı yaratabiliyordu.
 
-**DURUM:** 🔲 Açık — `PageSize`'a makul bir üst sınır (ör. 100) eklenmesi önerilir.
+**DURUM:** ✅ Düzeltildi — `WithPagination` artık `PageSize`'ı `[1, 100]` aralığına, `PageNumber`'ı minimum 1'e sessizce clamp'liyor (mevcut sort-param davranışıyla tutarlı bir tasarım); response, clamp'lenmiş gerçek değerleri geri döndürüyor.
 
-### 🟡 DÜŞÜK ÖNCELİK — Refresh Token'lar DB'de Düz Metin Saklanıyor
+### ✅ DÜŞÜK ÖNCELİK (Düzeltildi) — Refresh Token'lar DB'de Düz Metin Saklanıyordu
 
-`RefreshTokens.Token` kolonu, üretilen rastgele string'i doğrudan (hash'lenmeden) saklıyor. Token zaten 64 byte kriptografik rastgelelik taşıdığı için brute-force riski yok, ama bir DB dump'ı çalınırsa saldırgan ek bir işlem yapmadan doğrudan kullanılabilir refresh token'lara sahip olur (şifrelerin hash'lenmesiyle aynı savunma-derinliği mantığı). Düşük öncelik, ama üretim-sınıfı bir sistemde tokenlar da (SHA-256 gibi) hash'lenip DB'de hash'i tutulur, karşılaştırma hash üzerinden yapılır.
+`RefreshTokens.Token` kolonu, üretilen rastgele string'i doğrudan (hash'lenmeden) saklıyordu — bir DB dump'ı çalınırsa saldırgan ek bir işlem yapmadan doğrudan kullanılabilir refresh token'lara sahip olurdu.
 
-**DURUM:** 🔲 Açık, düşük öncelik.
+**DURUM:** ✅ Düzeltildi — `AuthService` artık token'ı SHA-256 ile hash'leyip DB'ye öyle yazıyor (`LoginAsync` ve `RefreshTokenAsync` her ikisi de), client'a dönen değer hâlâ ham (raw) değer. Şema değişikliği gerekmedi (mevcut 256 karakterlik `MaxLength` 64 karakterlik hex digest'i rahatça karşılıyor).
 
 ### Önceden Bilinen, Hâlâ Açık Maddeler (tekrar aynı ayrıntıyla ele alınmadı, bkz. ilgili bölüm)
 
@@ -641,11 +641,11 @@ Ama `AuthService.LoginAsync` (`AuthService.cs:35`) şifre kontrolünü doğrudan
 |----------|---------------------------|--------------------------|-----------------|
 | **Mimari** | 6.5 | 6.5 | 7.0 *(Faz 2 mimari iyileştirmeleri — `ICacheService`, tutarlı hata yönetimi)* |
 | **Kod Kalitesi** | 6.0 | 7.0 | 7.0 *(değişmedi)* |
-| **Güvenlik** | 5.0 | 6.5 | 7.0 *(refresh token family/reuse detection + OWASP review ile somut, izlenebilir bir bulgu listesi çıkarıldı — bkz. §12; ama account lockout'un aslında hiç çalışmadığı gibi yeni, gerçek bir P1 bulgu da ortaya çıktı)* |
+| **Güvenlik** | 5.0 | 6.5 | 8.0 *(OWASP review'da bulunan 6 madde de (account lockout enforcement, rate limiter partitioning + 429, dev-only API docs, pagination clamp, refresh token hashing) aynı oturumda düzeltildi — bkz. §12; kalan tek açık madde git geçmişi secret temizliği, ayrı onay gerektiriyor)* |
 | **Performans** | 6.5 | 6.5 | 7.5 *(Redis/HybridCache, dinamik sorting — Faz 3)* |
-| **Test Edilebilirlik** | 6.0 | 6.0 | 8.0 *(AuthService/UserService/RoleService/PermissionAuthorizationHandler artık test ediliyor — 92 unit + 9 integration test; entegrasyon test suite'i ayrıca gerçekten ÇALIŞIR hale getirildi, önceden hiç koşmuyordu)* |
+| **Test Edilebilirlik** | 6.0 | 6.0 | 8.0 *(AuthService/UserService/RoleService/PermissionAuthorizationHandler artık test ediliyor — 97 unit + 9 integration test; entegrasyon test suite'i ayrıca gerçekten ÇALIŞIR hale getirildi, önceden hiç koşmuyordu)* |
 | **Bakım Kolaylığı** | 6.0 | 6.0 | 6.5 *(env-specific appsettings, config-driven CORS/rate-limit)* |
-| **Production Readiness** | 4.0 | 5.0 | 7.0 *(Dockerfile + CI pipeline + environment ayrımı tamamlandı; kalan gerçek eksik: git geçmişi secret temizliği + §12'deki açık güvenlik bulguları)* |
+| **Production Readiness** | 4.0 | 5.0 | 7.5 *(Dockerfile + CI pipeline + environment ayrımı + OWASP bulgularının tamamı kapatıldı; kalan tek eksik git geçmişi secret temizliği — yıkıcı, ayrı onay gerektiriyor)* |
 
 ---
 
