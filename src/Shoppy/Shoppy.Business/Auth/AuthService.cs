@@ -30,15 +30,22 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
         }
 
-
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            _logger.LogWarning("Login failed: account {UserId} is locked out", user.Id);
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.AccountLockedOut);
+        }
 
         var result = await _userManager.CheckPasswordAsync(user, request.Password);
 
         if (!result)
         {
+            await _userManager.AccessFailedAsync(user);
             _logger.LogWarning("Login failed: incorrect password for user {UserId}", user.Id);
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
         }
+
+        await _userManager.ResetAccessFailedCountAsync(user);
 
 
         var roles = await _context.AppUserRoles

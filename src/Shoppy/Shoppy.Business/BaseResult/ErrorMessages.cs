@@ -50,6 +50,7 @@ public static class ErrorMessages
         public const string RefreshTokenFamilyRevoked = "Refresh token reuse detected; all sessions in this family have been revoked.";
         public const string RefreshTokenExpired = "Refresh token has expired.";
         public const string AccountDeactivated = "User account is deactivated.";
+        public const string AccountLockedOut = "Account is temporarily locked due to multiple failed login attempts. Please try again later.";
         public const string InvalidResetCode = "Invalid reset code.";
         public const string PasswordMismatch = "New password and confirmation do not match.";
         public const string EmailSendFailure = "Failed to send password reset email. Please try again later.";

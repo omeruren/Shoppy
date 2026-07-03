@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using Shoppy.Business.Auth;
 using Shoppy.Business.Auth.DataTransferObjects;
+using Shoppy.Business.BaseResult;
 using Shoppy.Business.Options;
 using Shoppy.Business.Services;
 using Shoppy.DataAccess.Context;
@@ -71,6 +72,41 @@ public class AuthServiceTests
         stored.FamilyId.Should().NotBe(Guid.Empty);
         stored.IsRevoked.Should().BeFalse();
         stored.ReplacedByToken.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task LoginAsync_Should_Reset_AccessFailedCount_On_Successful_Login()
+    {
+        var result = await _service.LoginAsync(new LoginRequestDto(_user.UserName!, "password"), CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+        await _userManager.Received(1).ResetAccessFailedCountAsync(_user);
+    }
+
+    [Fact]
+    public async Task LoginAsync_Should_Record_Failed_Attempt_When_Password_Is_Wrong()
+    {
+        _userManager.CheckPasswordAsync(_user, Arg.Any<string>()).Returns(Task.FromResult(false));
+
+        var result = await _service.LoginAsync(new LoginRequestDto(_user.UserName!, "wrong-password"), CancellationToken.None);
+
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(401);
+        await _userManager.Received(1).AccessFailedAsync(_user);
+        await _userManager.DidNotReceive().ResetAccessFailedCountAsync(_user);
+    }
+
+    [Fact]
+    public async Task LoginAsync_Should_Fail_When_Account_Is_Locked_Out()
+    {
+        _userManager.IsLockedOutAsync(_user).Returns(Task.FromResult(true));
+
+        var result = await _service.LoginAsync(new LoginRequestDto(_user.UserName!, "password"), CancellationToken.None);
+
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(401);
+        result.ErrorMessages.Should().Contain(ErrorMessages.Auth.AccountLockedOut);
+        await _userManager.DidNotReceive().CheckPasswordAsync(_user, Arg.Any<string>());
     }
 
     [Fact]
