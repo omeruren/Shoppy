@@ -34,16 +34,41 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
     {
         builder.ConfigureAppConfiguration((context, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            var settings = new Dictionary<string, string?>
             {
                 {"ConnectionStrings:SqlServer",_sqlContainer.GetConnectionString() },
                 {"ConnectionStrings:Redis",_redisContainer.GetConnectionString() }
-            });
+            };
+
+            foreach (var (key, value) in GetAdditionalConfiguration())
+                settings[key] = value;
+
+            config.AddInMemoryCollection(settings);
         });
     }
+
+    // Hook for subclasses that need to tweak app configuration beyond the container
+    // connection strings (e.g. relaxing rate-limit thresholds for tests that aren't
+    // themselves testing rate limiting).
+    protected virtual IDictionary<string, string?> GetAdditionalConfiguration() => new Dictionary<string, string?>();
 
     async Task IAsyncLifetime.DisposeAsync()
     {
         await Task.WhenAll(_sqlContainer.StopAsync(), _redisContainer.StopAsync());
     }
+}
+
+// The "auth-fixed" rate-limit policy is a single global, non-partitioned bucket shared
+// by every request the app instance handles. Functional auth-flow tests (login/refresh
+// rotation/permission checks) each make a handful of real HTTP calls against /api/v1/auth/*
+// and would otherwise intermittently collide with that shared bucket. Rate-limiting
+// behavior itself is covered separately by RateLimitingIntegrationTests against the
+// production-configured CustomWebApplicationFactory.
+public sealed class RelaxedAuthRateLimitWebApplicationFactory : CustomWebApplicationFactory
+{
+    protected override IDictionary<string, string?> GetAdditionalConfiguration() => new Dictionary<string, string?>
+    {
+        { "RateLimiting:AuthFixed:PermitLimit", "1000" },
+        { "RateLimiting:AuthFixed:WindowSeconds", "1" }
+    };
 }

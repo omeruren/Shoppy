@@ -69,8 +69,8 @@ builder.Services.AddRateLimiter(x =>
 {
     x.AddFixedWindowLimiter("fixed", cfr =>
     {
-        cfr.PermitLimit = 50;
-        cfr.Window = TimeSpan.FromSeconds(5);
+        cfr.PermitLimit = builder.Configuration.GetValue("RateLimiting:Fixed:PermitLimit", 50);
+        cfr.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:Fixed:WindowSeconds", 5));
         cfr.QueueLimit = 50;
         cfr.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
     });
@@ -80,8 +80,8 @@ builder.Services.AddRateLimiter(x =>
 {
     x.AddFixedWindowLimiter("auth-fixed", cfr =>
     {
-        cfr.PermitLimit = 5;
-        cfr.Window = TimeSpan.FromSeconds(1);
+        cfr.PermitLimit = builder.Configuration.GetValue("RateLimiting:AuthFixed:PermitLimit", 5);
+        cfr.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:AuthFixed:WindowSeconds", 1));
         cfr.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
     });
 });
