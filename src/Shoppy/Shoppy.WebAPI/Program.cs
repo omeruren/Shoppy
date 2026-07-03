@@ -159,7 +159,13 @@ app.UseSerilogRequestLogging();
 
 
 
-app.MapOpenApi();
+// API schema + interactive docs UI are a dev convenience, not something to expose
+// unauthenticated in Production — they widen the attack surface for no runtime benefit.
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
 
 var corsAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 
@@ -170,9 +176,6 @@ app.UseCors(c => c
                     .AllowCredentials()
                     .SetPreflightMaxAge(TimeSpan.FromMinutes(10))
 );
-
-
-app.MapScalarApiReference();
 
 app.UseResponseCompression();
 
