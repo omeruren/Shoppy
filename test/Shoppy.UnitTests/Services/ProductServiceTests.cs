@@ -119,6 +119,34 @@ public class ProductServiceTests
         result.Data.Data.Single().Name.Should().Be("Red Widget");
     }
 
+    [Fact]
+    public async Task GetAllAsync_Should_Clamp_PageSize_To_Max()
+    {
+        var category = await SeedCategoryAsync();
+        await SeedProductAsync("A", category.Id);
+
+        var request = new PaginationRequestDto(1, 1_000_000, string.Empty);
+
+        var result = await _service.GetAllAsync(request, CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+        result.Data!.PageSize.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Should_Clamp_PageNumber_To_Minimum_One()
+    {
+        var category = await SeedCategoryAsync();
+        await SeedProductAsync("A", category.Id);
+
+        var request = new PaginationRequestDto(-5, 10, string.Empty);
+
+        var result = await _service.GetAllAsync(request, CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+        result.Data!.PageNumber.Should().Be(1);
+    }
+
     // ─────────────────────────────────────────────
     //  CreateAsync
     // ─────────────────────────────────────────────

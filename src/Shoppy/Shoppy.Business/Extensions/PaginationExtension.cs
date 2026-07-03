@@ -4,22 +4,31 @@ namespace Shoppy.Business.Extensions;
 
 public static class PaginationExtension
 {
+    // Silently clamped (matches this codebase's existing style of falling back to
+    // sane defaults for invalid sort params rather than throwing — see SortingExtension).
+    // Caps PageSize so a client can't force an unbounded Take()/materialization via
+    // e.g. pageSize=1000000.
+    private const int MaxPageSize = 100;
+
     public static async Task<PaginationResultDto<T>> WithPagination<T>(this IQueryable<T> values, PaginationRequestDto request, CancellationToken cancellationToken)
     {
+        var pageNumber = Math.Max(1, request.PageNumber);
+        var pageSize = Math.Clamp(request.PageSize, 1, MaxPageSize);
+
         var totalCount = await values.CountAsync(cancellationToken);
 
         var list = await values
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         var pagRes = new PaginationResultDto<T>
         {
             Data = list,
-            PageNumber = request.PageNumber,
-            PageSize = request.PageSize,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
             TotalCount = totalCount,
-            TotalPageCount = (int)Math.Ceiling((double)totalCount / request.PageSize)
+            TotalPageCount = (int)Math.Ceiling((double)totalCount / pageSize)
         };
         return pagRes;
     }
