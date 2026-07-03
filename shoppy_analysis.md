@@ -550,32 +550,102 @@ Business→DataAccess bağımlılık yönü (§1'de "Clean Architecture'da ters 
 
 ---
 
-### 🔵 Faz 4 — Kurumsal Seviye Hazırlık (tahmini ~4 hafta)
+### ✅ Faz 4 — Kurumsal Seviye Hazırlık (bu oturumda büyük ölçüde tamamlandı)
 
-- [x] `docker-compose.yml` (Faz 3'te redis + jaeger servisleriyle eklendi — `Dockerfile` hâlâ açık)
-- [ ] `Dockerfile`
-- [ ] GitHub Actions CI/CD pipeline
-- [ ] `UserService`, `RoleService` unit testleri (`AuthService` Faz 3'te eklendi — bkz. `AuthServiceTests.cs`)
-- [ ] Integration test genişletme (auth flow, permission enforcement, rate limiting)
-- [ ] Environment-specific appsettings stratejisi
-- [ ] Git geçmişinden secret temizliği (BFG/`git filter-repo` + force-push — ayrı onay gerektirir)
-- [ ] OWASP security review
+- [x] `docker-compose.yml` (Faz 3'te redis + jaeger servisleriyle eklendi)
+- [x] `Dockerfile` (multi-stage: SDK build → `aspnet:10.0` runtime, non-root `app` user, `docker build` ile doğrulandı — bkz. aşağıda)
+- [x] GitHub Actions CI/CD pipeline (`.github/workflows/ci.yml`: build + unit + integration testler + Docker image doğrulaması)
+- [x] `UserService`, `RoleService` unit testleri (+ `PermissionAuthorizationHandler` testleri de eklendi — `AuthService` Faz 3'te eklenmişti)
+- [x] Integration test genişletme (auth flow, permission enforcement, rate limiting) — ayrıca bu çalışma sırasında `ApiIntegrationTests`'in daha önce hiç çalışmadığı (bkz. aşağıda) ortaya çıktı ve düzeltildi
+- [x] Environment-specific appsettings stratejisi (CORS + dev-only SQL connection string artık `appsettings.Development.json`'da, `appsettings.Production.json` eklendi)
+- [ ] Git geçmişinden secret temizliği (BFG/`git filter-repo` + force-push — ayrı ve açık onay gerektiren yıkıcı bir işlem, bu oturuma dahil değil)
+- [x] OWASP security review (bkz. §12 aşağıda)
 
-**Beklenen Kazanım:** Production deployment hazırlığı, enterprise kalite.
+**Kazanım:** `Dockerfile` gerçek bir `docker build` ile doğrulandı (image başarıyla derleniyor ve non-root kullanıcıyla çalışıyor). CI pipeline artık her push/PR'da build + tüm test suite'lerini (Testcontainers dahil) + Docker image derlemesini otomatik çalıştırıyor. `UserService`/`RoleService`/`PermissionAuthorizationHandler` için toplam 30 yeni unit test eklendi (62 → 92). CORS artık `Program.cs`'de hardcoded değil, `Cors:AllowedOrigins` konfigürasyonundan okunuyor (base'de güvenli varsayılan: boş liste; dev origin'leri `appsettings.Development.json`'da) — canlı preflight istekleriyle doğrulandı.
+
+**Bu oturumda bulunan ek buglar (test genişletmesi sırasında ortaya çıktı):**
+- `ApiIntegrationTests` sınıfı `IClassFixture<CustomWebApplicationFactory>` implement etmiyordu (Faz 3'te "önceden var olan, kapsam dışı" olarak not edilmişti) — düzeltildi, ama düzeltince ARKASINDA İKİ GERÇEK BUG daha ortaya çıktı:
+  1. `CustomWebApplicationFactory.InitializeAsync`, EF migration'ını `Services` property'sine eriştikten SONRA çalıştırıyordu; ama `Services`'e erişmek `Program.cs`'in tamamını (içindeki `RolePermissionSeeder` dahil) başlatıyor — seeder henüz migrate edilmemiş bir şemaya karşı sorgu atıp patlıyordu. Migration artık host başlamadan önce, bağımsız bir `DbContext` üzerinden çalışıyor.
+  2. Test helper'ı, `POST /api/v1/users`'ın anonim self-registration için çalıştığını varsayıyordu — ama bu endpoint `Users.Create` permission'ı gerektiriyor (uygulamada public bir kayıt endpoint'i hiç yok). Test kullanıcıları artık doğrudan `UserManager` üzerinden seed ediliyor.
+- `auth-fixed` rate limiter policy'sinin global, partition'sız tek bir bucket olduğu (bkz. §12, madde A04/A05) test yazarken ortaya çıktı — fonksiyonel auth testleri için ayrı, gevşetilmiş limitli bir factory (`RelaxedAuthRateLimitWebApplicationFactory`) eklendi; gerçek rate-limit davranışı `RateLimitingIntegrationTests`'te production limitleriyle test ediliyor.
+
+**Beklenen Kazanım:** Production deployment hazırlığı büyük ölçüde tamamlandı; kalan tek kapsam dışı madde git geçmişi secret temizliği (yıkıcı, ayrı onay gerektiriyor).
+
+---
+
+## 12. OWASP GÜVENLİK DEĞERLENDİRMESİ (Faz 4)
+
+OWASP Top 10:2021 + API Security Top 10:2023 kategorilerine göre kod okunarak yapılan bir değerlendirme (otomatik tarama aracı kullanılmadı). Daha önceki fazlarda kapatılmış maddeler kısaca özetlenip yeni bulgulara odaklanıldı.
+
+### ✅ İyi Durumda Olanlar (önceki fazlarda kapatıldı)
+
+- **A01 Broken Access Control** — Permission-bazlı authorization tüm admin endpoint'lerinde tutarlı şekilde uygulanıyor (Faz 0); self-servis endpoint'ler (`/users/me*`) claim'den gelen kullanıcı id'sine göre scope'lanıyor, email değişikliği admin-only.
+- **A03 Injection** — Tüm sorgular EF Core LINQ üzerinden parametrize ediliyor, hiçbir yerde raw SQL/string concatenation yok.
+- **A04 Insecure Design (auth akışı)** — Refresh token rotation + family-bazlı reuse/theft detection (Faz 3), password reset OTP expiry + tek kullanımlık kod (Faz 1).
+- **A07 Identification & Authentication (JWT)** — `JwtOptionsSetup` içinde issuer/audience/signing-key/lifetime validasyonlarının hepsi açık (`JwtOptions.cs:24-31`); refresh token'lar `RandomNumberGenerator` ile 64 byte kriptografik rastgelelik kullanıyor (`JwtProvider.cs:60-66`); access token TTL 1 saat, refresh token TTL 7 gün — makul.
+- **A09 Logging & Monitoring** — Business katmanında `ILogger` (Faz 3), Serilog request logging + correlation id, OpenTelemetry OTLP → Jaeger tracing.
+
+### 🔴 YENİ BULGU — Account Lockout Yapılandırılmış Ama Hiç Devrede Değil
+
+`DataAccessRegistrar.cs:29-31` şunu yapılandırıyor:
+```csharp
+opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+opt.Lockout.MaxFailedAccessAttempts = 5;
+opt.Lockout.AllowedForNewUsers = true;
+```
+Ama `AuthService.LoginAsync` (`AuthService.cs:35`) şifre kontrolünü doğrudan `_userManager.CheckPasswordAsync(user, request.Password)` ile yapıyor — bu metod lockout mekanizmasına hiç dokunmuyor. Identity'nin lockout'u normalde `SignInManager.PasswordSignInAsync` (veya elle `AccessFailedAsync`/`IsLockedOutAsync`/`ResetAccessFailedCountAsync` çağrıları) üzerinden çalışır; burada hiçbiri çağrılmıyor. **Sonuç: yapılandırılmış "5 başarısız denemede 15 dakika kilitle" korumasi tamamen ölü kod — sınırsız şifre denemesi mümkün** (auth-fixed rate limiter'ın genel hız sınırı dışında, hesap-bazlı hiçbir koruma yok).
+
+**DURUM:** 🔲 Açık — bu oturumun kapsamı dışında (davranış değişikliği gerektiriyor), gelecek bir faza bırakıldı.
+
+### 🟠 YENİ BULGU — `auth-fixed` Rate Limiter Global ve Partition'sız
+
+`Program.cs`'deki `"auth-fixed"` policy (5 istek / 1 saniye) tüm `/api/v1/auth/*` endpoint'leri için **tek, paylaşılan, IP/kullanıcı bazında ayrılmamış bir sayaç** kullanıyor. Bu, entegrasyon testleri yazılırken (`RateLimitingIntegrationTests`) doğrulandı. Pratik sonucu: kötü niyetli veya hatalı davranan **tek bir client**, `/auth/login`'e saniyede 5'ten fazla istek atarak o saniyelik pencerede **uygulamadaki TÜM kullanıcıların** login/refresh/forgot-password/reset-password isteklerini 503 ile reddettirebilir — kendi kendine DoS. Doğru çözüm, `PartitionedRateLimiter` ile IP adresine (veya kimlik doğrulanmışsa kullanıcıya) göre partition'lamak.
+
+**DURUM:** 🔲 Açık — davranış değişikliği + muhtemelen ek test gerektiriyor, gelecek faza bırakıldı.
+
+### 🟡 YENİ BULGU — Rate Limit Reddi 503 Dönüyor, Semantik Olarak 429 Olmalı
+
+`AddRateLimiter` çağrılarının hiçbirinde `RejectionStatusCode` ayarlanmamış, bu yüzden ASP.NET Core varsayılanı olan `503 Service Unavailable` kullanılıyor. HTTP semantiğine göre rate-limit reddi için doğru kod `429 Too Many Requests`'tir (503 "sunucu aşırı yüklü/bakımda" anlamına gelir ve istemcilere farklı bir retry stratejisi sinyali verir). Küçük, düşük riskli bir düzeltme: `RateLimiterOptions.RejectionStatusCode = StatusCodes.Status429TooManyRequests`.
+
+**DURUM:** 🔲 Açık.
+
+### 🟡 YENİ BULGU — API Dokümantasyonu Ortam Ayrımı Olmadan Açık
+
+`Program.cs`'de `app.MapOpenApi()` ve `app.MapScalarApiReference()` herhangi bir `IsDevelopment()` kontrolü olmadan çağrılıyor — yani `/openapi` (tam şema) ve `/scalar` (interaktif dokümantasyon UI) **Production'da da erişilebilir**. Bu doğrudan bir açık değil (endpoint'lerin kendisi hâlâ authorization gerektiriyor) ama saldırı yüzeyini büyütüyor: route/DTO şemasının tamamı kimlik doğrulaması olmadan keşfedilebilir hale geliyor.
+
+**DURUM:** 🔲 Açık — üretimde bu endpoint'leri `IsDevelopment()` arkasına almak veya ayrı bir authorization policy ile korumak önerilir.
+
+### 🟡 YENİ BULGU (API4:2023 Unrestricted Resource Consumption) — Pagination Sınırsız
+
+`PaginationRequestDto.PageSize`/`PageNumber` üzerinde hiçbir üst sınır veya pozitiflik kontrolü yok (`PaginationExtension.cs`). Bir client `pageSize=1000000` göndererek tek istekte büyük bir DB round-trip'i + bellek baskısı yaratabilir.
+
+**DURUM:** 🔲 Açık — `PageSize`'a makul bir üst sınır (ör. 100) eklenmesi önerilir.
+
+### 🟡 DÜŞÜK ÖNCELİK — Refresh Token'lar DB'de Düz Metin Saklanıyor
+
+`RefreshTokens.Token` kolonu, üretilen rastgele string'i doğrudan (hash'lenmeden) saklıyor. Token zaten 64 byte kriptografik rastgelelik taşıdığı için brute-force riski yok, ama bir DB dump'ı çalınırsa saldırgan ek bir işlem yapmadan doğrudan kullanılabilir refresh token'lara sahip olur (şifrelerin hash'lenmesiyle aynı savunma-derinliği mantığı). Düşük öncelik, ama üretim-sınıfı bir sistemde tokenlar da (SHA-256 gibi) hash'lenip DB'de hash'i tutulur, karşılaştırma hash üzerinden yapılır.
+
+**DURUM:** 🔲 Açık, düşük öncelik.
+
+### Önceden Bilinen, Hâlâ Açık Maddeler (tekrar aynı ayrıntıyla ele alınmadı, bkz. ilgili bölüm)
+
+- **A02 Cryptographic Failures** — JWT/SMTP secret'ları git geçmişinde kalmaya devam ediyor (bkz. §2, §10) — temizlik ayrı onay gerektiren yıkıcı bir işlem.
+- **A05 Security Misconfiguration** — `AllowedHosts: "*"` hâlâ açık (bkz. §5) — gerçek bir production hostname'i olmadan anlamlı bir değerle değiştirilemez, bu yüzden bu oturumda dokunulmadı.
+- **A06 Vulnerable Components** — Bağımlılık güvenlik açığı taraması (ör. GitHub Dependabot alerts, `dotnet list package --vulnerable`) henüz repoya bağlı değil.
 
 ---
 
 ## SONUÇ PUANLAMASI
 
-| Kategori | Puan (10 üzerinden) — Önce | Sonra (Faz 0+1 sonrası) |
-|----------|---------------------------|--------------------------|
-| **Mimari** | 6.5 | 6.5 *(değişmedi, Faz 2 bekliyor)* |
-| **Kod Kalitesi** | 6.0 | 7.0 *(build fix + critical buglar kapandı)* |
-| **Güvenlik** | 5.0 | 6.5 *(permission enforcement çalışıyor + secrets ileriye dönük düzeltildi)* |
-| **Performans** | 6.5 | 6.5 *(değişmedi)* |
-| **Test Edilebilirlik** | 6.0 | 6.0 *(değişmedi — AuthService/UserService hâlâ test edilmiyor)* |
-| **Bakım Kolaylığı** | 6.0 | 6.0 *(değişmedi)* |
-| **Production Readiness** | 4.0 | 5.0 *(build çalışıyor + auth gerçek, ama Docker/CI/history cleanup hâlâ yok)* |
+| Kategori | Puan (10 üzerinden) — Önce | Faz 0+1 sonrası | Faz 4 sonrası |
+|----------|---------------------------|--------------------------|-----------------|
+| **Mimari** | 6.5 | 6.5 | 7.0 *(Faz 2 mimari iyileştirmeleri — `ICacheService`, tutarlı hata yönetimi)* |
+| **Kod Kalitesi** | 6.0 | 7.0 | 7.0 *(değişmedi)* |
+| **Güvenlik** | 5.0 | 6.5 | 7.0 *(refresh token family/reuse detection + OWASP review ile somut, izlenebilir bir bulgu listesi çıkarıldı — bkz. §12; ama account lockout'un aslında hiç çalışmadığı gibi yeni, gerçek bir P1 bulgu da ortaya çıktı)* |
+| **Performans** | 6.5 | 6.5 | 7.5 *(Redis/HybridCache, dinamik sorting — Faz 3)* |
+| **Test Edilebilirlik** | 6.0 | 6.0 | 8.0 *(AuthService/UserService/RoleService/PermissionAuthorizationHandler artık test ediliyor — 92 unit + 9 integration test; entegrasyon test suite'i ayrıca gerçekten ÇALIŞIR hale getirildi, önceden hiç koşmuyordu)* |
+| **Bakım Kolaylığı** | 6.0 | 6.0 | 6.5 *(env-specific appsettings, config-driven CORS/rate-limit)* |
+| **Production Readiness** | 4.0 | 5.0 | 7.0 *(Dockerfile + CI pipeline + environment ayrımı tamamlandı; kalan gerçek eksik: git geçmişi secret temizliği + §12'deki açık güvenlik bulguları)* |
 
 ---
 
