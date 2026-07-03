@@ -21,6 +21,7 @@ public class OrderServiceTests
     private readonly ICacheService _cacheService;
     private readonly OrderService _service;
     private readonly Guid _userId = Guid.NewGuid();
+    private readonly DefaultHttpContext _httpContext;
 
     public OrderServiceTests()
     {
@@ -31,22 +32,33 @@ public class OrderServiceTests
 
         // Stub HttpContextAccessor so audit fields (CreatedBy, UpdatedBy) are populated
         var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
-        var httpContext = new DefaultHttpContext();
-        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, _userId.ToString()) };
-        var identity = new ClaimsIdentity(claims, "TestAuth");
-        httpContext.User = new ClaimsPrincipal(identity);
-        httpContextAccessor.HttpContext.Returns(httpContext);
+        _httpContext = new DefaultHttpContext();
+        SetCurrentUser(_userId);
+        httpContextAccessor.HttpContext.Returns(_ => _httpContext);
 
         _context = new ApplicationDbContext(options, httpContextAccessor);
 
         _cacheService = new NoOpCacheService();
 
-        _service = new OrderService(_context, _cacheService, NullLogger<OrderService>.Instance);
+        _service = new OrderService(_context, _cacheService, NullLogger<OrderService>.Instance, httpContextAccessor);
     }
 
     // ─────────────────────────────────────────────
     //  Helpers
     // ─────────────────────────────────────────────
+
+    private void SetCurrentUser(Guid? userId, bool isAdmin = false)
+    {
+        var claims = new List<Claim>();
+
+        if (userId.HasValue)
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString()));
+
+        if (isAdmin)
+            claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+
+        _httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth"));
+    }
 
     private Order BuildOrder(DateTimeOffset? orderDate = null)
     {
@@ -106,6 +118,36 @@ public class OrderServiceTests
         result.ErrorMessages.Should().Contain("Order not found.");
     }
 
+    [Fact]
+    public async Task GetByIdAsync_Should_Fail_When_Order_Belongs_To_Another_Customer()
+    {
+        // Arrange
+        var order = await SeedOrderAsync();
+        SetCurrentUser(Guid.NewGuid()); // switch to a different, non-admin caller
+
+        // Act
+        var result = await _service.GetByIdAsync(order.Id, CancellationToken.None);
+
+        // Assert — treated as not found, not forbidden, to avoid leaking existence
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(404);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_Should_Return_Any_Order_For_Admin()
+    {
+        // Arrange
+        var order = await SeedOrderAsync();
+        SetCurrentUser(Guid.NewGuid(), isAdmin: true);
+
+        // Act
+        var result = await _service.GetByIdAsync(order.Id, CancellationToken.None);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+        result.Data!.Id.Should().Be(order.Id);
+    }
+
     // ─────────────────────────────────────────────
     //  GetAllAsync
     // ─────────────────────────────────────────────
@@ -127,6 +169,45 @@ public class OrderServiceTests
         result.IsSuccessful.Should().BeTrue();
         result.Data!.TotalCount.Should().Be(3);
         result.Data.Data.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Should_Only_Return_Own_Orders_For_Customer()
+    {
+        // Arrange — two orders created by the default caller, then one created by someone else
+        await SeedOrderAsync();
+        await SeedOrderAsync();
+
+        SetCurrentUser(Guid.NewGuid());
+        await SeedOrderAsync();
+
+        SetCurrentUser(_userId); // back to the original caller
+        var request = new PaginationRequestDto(1, 10, string.Empty);
+
+        // Act
+        var result = await _service.GetAllAsync(request, CancellationToken.None);
+
+        // Assert
+        result.Data!.TotalCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Should_Return_All_Orders_For_Admin()
+    {
+        // Arrange
+        await SeedOrderAsync();
+
+        SetCurrentUser(Guid.NewGuid());
+        await SeedOrderAsync();
+
+        SetCurrentUser(Guid.NewGuid(), isAdmin: true);
+        var request = new PaginationRequestDto(1, 10, string.Empty);
+
+        // Act
+        var result = await _service.GetAllAsync(request, CancellationToken.None);
+
+        // Assert
+        result.Data!.TotalCount.Should().Be(2);
     }
 
     [Fact]

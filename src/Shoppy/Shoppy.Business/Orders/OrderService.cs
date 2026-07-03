@@ -1,4 +1,5 @@
 using Mapster;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
@@ -8,24 +9,50 @@ using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.Business.Orders.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
+using System.Security.Claims;
 
 namespace Shoppy.Business.Orders;
 
-public sealed class OrderService(ApplicationDbContext _context, ICacheService _cacheService, ILogger<OrderService> _logger) : IOrderService
+public sealed class OrderService(
+    ApplicationDbContext _context,
+    ICacheService _cacheService,
+    ILogger<OrderService> _logger,
+    IHttpContextAccessor _httpContextAccessor) : IOrderService
 {
     private const string CacheKeyPrefix = "orders";
 
     private readonly DbSet<Order> _orders = _context.Set<Order>();
     private readonly DbSet<OrderItem> _orderItems = _context.Set<OrderItem>();
 
+    // Orders are only ever visible to their own creator, except for Admins who manage all orders.
+    // Resolved per-call (not cached on the instance) since scoped services are reused within a request only.
+    private (Guid? UserId, bool IsAdmin) ResolveCaller()
+    {
+        var user = _httpContextAccessor.HttpContext?.User;
+
+        if (user?.Identity?.IsAuthenticated != true)
+            return (null, false);
+
+        var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = Guid.TryParse(userIdClaim, out var parsedId) ? parsedId : (Guid?)null;
+
+        return (userId, user.IsInRole("Admin"));
+    }
+
     // GET ALL ORDERS
 
     public async Task<Result<PaginationResultDto<OrderResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
+        var (userId, isAdmin) = ResolveCaller();
+
+        // Cache key must vary per caller — otherwise one customer's cached page could be served to another.
+        var cacheKey = $"{request.ToCacheKey(CacheKeyPrefix)}:u{(isAdmin ? "admin" : userId?.ToString() ?? "anon")}";
+
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, cacheKey, async () =>
         {
             return await _orders
                .AsNoTracking()
+               .Where(o => isAdmin || o.CreatedBy == userId)
                .Where(o => string.IsNullOrWhiteSpace(request.SearchTerm)
                    || o.Items.Any(i => i.Product.Name.Contains(request.SearchTerm)))
                .Include(o => o.Items)
@@ -67,8 +94,11 @@ public sealed class OrderService(ApplicationDbContext _context, ICacheService _c
 
     public async Task<Result<OrderResultDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
+        var (userId, isAdmin) = ResolveCaller();
+
         var order = await _orders
             .AsNoTracking()
+            .Where(o => isAdmin || o.CreatedBy == userId)
             .Include(o => o.Items)
             .Select(p => new OrderResultDto
             {
@@ -81,6 +111,8 @@ public sealed class OrderService(ApplicationDbContext _context, ICacheService _c
                     Quantity = i.Quantity
                 }).ToList()
             })
+            // A non-admin's order belonging to someone else is treated the same as
+            // non-existent (404, not 403) — avoids leaking whether the order id exists at all.
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
 
         if (order is null)
