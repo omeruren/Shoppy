@@ -1,5 +1,6 @@
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Caching;
 using Shoppy.Business.Categories.DataTransferObjects;
@@ -9,7 +10,7 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Categories;
 
-public sealed class CategoryService(ApplicationDbContext _context, ICacheService _cacheService) : ICategoryService
+public sealed class CategoryService(ApplicationDbContext _context, ICacheService _cacheService, ILogger<CategoryService> _logger) : ICategoryService
 {
     private const string CacheKeyPrefix = "categories";
 
@@ -39,7 +40,7 @@ public sealed class CategoryService(ApplicationDbContext _context, ICacheService
                     DeletedBy = p.DeletedBy
 
                 })
-                .OrderBy(c => c.Name)
+                .ApplyCategorySort(request.SortBy, request.SortDirection)
                 .WithPagination(request, cancellationToken);
         }, TimeSpan.FromMinutes(5));
     }
@@ -72,7 +73,9 @@ public sealed class CategoryService(ApplicationDbContext _context, ICacheService
         _categories.Add(category);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Category {CategoryId} ({CategoryName}) created", category.Id, category.Name);
 
         return Result<string>.Success("Category created.", 201);
     }
@@ -101,7 +104,9 @@ public sealed class CategoryService(ApplicationDbContext _context, ICacheService
         _categories.Update(category);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Category {CategoryId} updated", category.Id);
 
         return "Category updated.";
     }
@@ -119,7 +124,9 @@ public sealed class CategoryService(ApplicationDbContext _context, ICacheService
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Category {CategoryId} deleted", category.Id);
 
         return "Category deleted.";
     }

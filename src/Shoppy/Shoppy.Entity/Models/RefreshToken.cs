@@ -8,6 +8,8 @@ public sealed class RefreshToken
     public DateTimeOffset ExpiresAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public bool IsRevoked { get; set; }
+    public Guid FamilyId { get; set; }
+    public string? ReplacedByToken { get; set; }
 
     public User User { get; set; } = default!;
 }

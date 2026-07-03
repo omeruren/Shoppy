@@ -1,5 +1,6 @@
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
@@ -9,7 +10,7 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Products;
 
-public sealed class ProductService(ApplicationDbContext _context, ICacheService _cacheService) : IProductService
+public sealed class ProductService(ApplicationDbContext _context, ICacheService _cacheService, ILogger<ProductService> _logger) : IProductService
 {
     private const string CacheKeyPrefix = "products";
     private readonly DbSet<Product> _products = _context.Set<Product>();
@@ -38,7 +39,7 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
                     DeletedAt = s.product.DeletedAt,
                     IsDeleted = s.product.IsDeleted
                 })
-                .OrderBy(p => p.Name)
+                .ApplyProductSort(request.SortBy, request.SortDirection)
                 .WithPagination(request, cancellationToken);
         }, TimeSpan.FromMinutes(5));
     }
@@ -88,16 +89,19 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
             // Broad catch: Product.Name has a single unique index, so a concurrent duplicate-name
             // insert racing past the AnyAsync check above is the overwhelmingly likely cause here.
             // A genuine FK violation (invalid CategoryId) would also land here and be misreported
             // as a 409 rather than a more specific error — accepted tradeoff given the simpler check.
+            _logger.LogWarning(ex, "DbUpdateException creating product {ProductName}", request.Name);
             return Result<string>.Failure(409, ErrorMessages.Product.AlreadyExists);
         }
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Product {ProductId} ({ProductName}) created", product.Id, product.Name);
 
         return Result<string>.Success("Product created.", 201);
     }
@@ -131,12 +135,15 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
+            _logger.LogWarning(ex, "DbUpdateException updating product {ProductId}", request.Id);
             return Result<string>.Failure(409, ErrorMessages.Product.AlreadyExists);
         }
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Product {ProductId} updated", product.Id);
 
         return "Product updated.";
     }
@@ -153,7 +160,9 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Product {ProductId} deleted", product.Id);
 
         return "Product deleted.";
     }

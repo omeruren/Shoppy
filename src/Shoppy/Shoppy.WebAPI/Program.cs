@@ -27,7 +27,7 @@ builder.Host.UseSerilog((context, configuration) =>
 
 // register services
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddDataAccess(builder.Configuration).AddBusiness();
+builder.Services.AddDataAccess(builder.Configuration).AddBusiness(builder.Configuration);
 
 
 // Carter
@@ -111,17 +111,21 @@ builder.Services.AddAuthorization(conf =>
 });
 
 // OpenTelemetry Configuration
+var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4317";
+
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService("Shoppy.WebAPI"))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddEntityFrameworkCoreInstrumentation()
-        .AddConsoleExporter())
+        .AddConsoleExporter()
+        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
     .WithMetrics(metrics => metrics
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddConsoleExporter());
+        .AddConsoleExporter()
+        .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
 
 // Health Checks
 builder.Services.AddHealthChecks().AddSqlServer(

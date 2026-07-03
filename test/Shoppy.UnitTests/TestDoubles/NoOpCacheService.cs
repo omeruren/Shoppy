@@ -8,5 +8,5 @@ internal sealed class NoOpCacheService : ICacheService
     public Task<T> GetOrCreateAsync<T>(string prefix, string key, Func<Task<T>> factory, TimeSpan expiration)
         => factory();
 
-    public void InvalidatePrefix(string prefix) { }
+    public Task InvalidatePrefixAsync(string prefix) => Task.CompletedTask;
 }

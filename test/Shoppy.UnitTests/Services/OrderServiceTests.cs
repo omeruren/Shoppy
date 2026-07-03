@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
@@ -40,7 +41,7 @@ public class OrderServiceTests
 
         _cacheService = new NoOpCacheService();
 
-        _service = new OrderService(_context, _cacheService);
+        _service = new OrderService(_context, _cacheService, NullLogger<OrderService>.Instance);
     }
 
     // ─────────────────────────────────────────────

@@ -47,6 +47,7 @@ public static class ErrorMessages
         public const string InvalidCredentials = "User name or password is incorrect.";
         public const string InvalidRefreshToken = "Invalid refresh token.";
         public const string RefreshTokenRevoked = "Refresh token has been revoked.";
+        public const string RefreshTokenFamilyRevoked = "Refresh token reuse detected; all sessions in this family have been revoked.";
         public const string RefreshTokenExpired = "Refresh token has expired.";
         public const string AccountDeactivated = "User account is deactivated.";
         public const string InvalidResetCode = "Invalid reset code.";

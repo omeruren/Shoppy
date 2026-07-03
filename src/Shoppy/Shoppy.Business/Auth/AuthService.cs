@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shoppy.Business.Auth.DataTransferObjects;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Services;
@@ -8,7 +9,7 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Auth;
 
-public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider, ApplicationDbContext _context, IEmailService _emailService) : IAuthService
+public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwtProvider, ApplicationDbContext _context, IEmailService _emailService, ILogger<AuthService> _logger) : IAuthService
 {
 
 
@@ -18,17 +19,26 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         var user = await _userManager.FindByNameAsync(request.UserName);
 
         if (user is null)
+        {
+            _logger.LogWarning("Login failed: unknown username {UserName}", request.UserName);
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
+        }
 
         if (user.IsDeleted)
+        {
+            _logger.LogWarning("Login failed: account {UserId} is deactivated", user.Id);
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
+        }
 
 
 
         var result = await _userManager.CheckPasswordAsync(user, request.Password);
 
         if (!result)
+        {
+            _logger.LogWarning("Login failed: incorrect password for user {UserId}", user.Id);
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidCredentials);
+        }
 
 
         var roles = await _context.AppUserRoles
@@ -50,7 +60,7 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
 
         var loginResponse = _jwtProvider.CreateToken(user, roles, permissions);
 
-        // Save refresh token to database
+        // Save refresh token to database — login always starts a brand new token family
         var refreshToken = new RefreshToken
         {
             Id = Guid.CreateVersion7(),
@@ -58,11 +68,14 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
             Token = loginResponse.RefreshToken,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             CreatedAt = DateTimeOffset.UtcNow,
-            IsRevoked = false
+            IsRevoked = false,
+            FamilyId = Guid.CreateVersion7()
         };
 
         _context.RefreshTokens.Add(refreshToken);
         await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("User {UserId} logged in, started refresh token family {FamilyId}", user.Id, refreshToken.FamilyId);
 
         return loginResponse;
     }
@@ -75,22 +88,42 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
             .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken, cancellationToken);
 
         if (storedToken is null)
+        {
+            _logger.LogWarning("Refresh token attempt failed: token not found");
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.InvalidRefreshToken);
+        }
 
-        // check if token is revoked
+        // check if token is revoked — reuse of an already-revoked token is a replay/theft signal,
+        // so the entire token family is revoked rather than just rejecting this one request.
         if (storedToken.IsRevoked)
-            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.RefreshTokenRevoked);
+        {
+            var familyTokens = await _context.RefreshTokens
+                .Where(rt => rt.FamilyId == storedToken.FamilyId && !rt.IsRevoked)
+                .ToListAsync(cancellationToken);
+
+            foreach (var t in familyTokens)
+                t.IsRevoked = true;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogWarning("Refresh token reuse detected — revoking entire token family {FamilyId} for user {UserId}", storedToken.FamilyId, storedToken.UserId);
+
+            return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.RefreshTokenFamilyRevoked);
+        }
 
         // check if token is expired
         if (storedToken.ExpiresAt < DateTimeOffset.UtcNow)
+        {
+            _logger.LogWarning("Refresh token attempt failed: token expired for user {UserId}", storedToken.UserId);
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.RefreshTokenExpired);
+        }
 
         // check if user is deleted
         if (storedToken.User.IsDeleted)
+        {
+            _logger.LogWarning("Refresh token attempt failed: account {UserId} is deactivated", storedToken.UserId);
             return Result<LoginResponseDto>.Failure(401, ErrorMessages.Auth.AccountDeactivated);
-
-        // revoke old token
-        storedToken.IsRevoked = true;
+        }
 
 
         // get user roles
@@ -115,7 +148,7 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         // Generate new tokens
         var loginResponse = _jwtProvider.CreateToken(storedToken.User, roles, permissions);
 
-        // Save new refresh token
+        // Save new refresh token — carries the same FamilyId forward (rotation, not a new family)
         var newRefreshToken = new RefreshToken
         {
             Id = Guid.CreateVersion7(),
@@ -123,11 +156,18 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
             Token = loginResponse.RefreshToken,
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(7),
             CreatedAt = DateTimeOffset.UtcNow,
-            IsRevoked = false
+            IsRevoked = false,
+            FamilyId = storedToken.FamilyId
         };
+
+        // revoke old token, linking it to the token that replaced it
+        storedToken.IsRevoked = true;
+        storedToken.ReplacedByToken = newRefreshToken.Token;
 
         _context.RefreshTokens.Add(newRefreshToken);
         await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Refresh token rotated for user {UserId} in family {FamilyId}", storedToken.UserId, storedToken.FamilyId);
 
         return loginResponse;
     }
@@ -158,8 +198,9 @@ public sealed class AuthService(UserManager<User> _userManager, JwtProvider _jwt
         {
             await _emailService.SendEmailAsync(user.Email!, "Password reset code", emailBody, cancellationToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to send password reset email to user {UserId}", user.Id);
 
             user.ClearPasswordResetCode();
             await _userManager.UpdateAsync(user);

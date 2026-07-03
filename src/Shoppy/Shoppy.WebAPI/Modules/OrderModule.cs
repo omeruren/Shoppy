@@ -32,9 +32,11 @@ public class OrderModule : ICarterModule
             int pageNumber = 1,
             int pageSize = 10,
             string searchTerm = "",
+            string? sortBy = null,
+            string? sortDirection = null,
             CancellationToken cancellationToken = default) =>
         {
-            var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm);
+            var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm, sortBy, sortDirection);
 
             var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
@@ -37,7 +38,7 @@ public class ProductServiceTests
 
         _cacheService = new NoOpCacheService();
 
-        _service = new ProductService(_context, _cacheService);
+        _service = new ProductService(_context, _cacheService, NullLogger<ProductService>.Instance);
     }
 
     private async Task<Category> SeedCategoryAsync(string name = "Electronics")

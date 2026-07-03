@@ -25,10 +25,10 @@ public static class PaginationExtension
     }
 
     public static string ToCacheKey(this PaginationRequestDto request, string prefix)
-        => $"{prefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}";
+        => $"{prefix}:p{request.PageNumber}:s{request.PageSize}:q{request.SearchTerm}:sort{request.SortBy ?? "-"}:{request.SortDirection ?? "-"}";
 }
 
-public sealed record PaginationRequestDto(int PageNumber, int PageSize, string SearchTerm);
+public sealed record PaginationRequestDto(int PageNumber, int PageSize, string SearchTerm, string? SortBy = null, string? SortDirection = null);
 
 public sealed class PaginationResultDto<T>
 {

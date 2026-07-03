@@ -32,9 +32,11 @@ public sealed class CategoryModule : ICarterModule
             int pageNumber = 1,
             int pagesize = 5,
             string searchTerm = "",
+            string? sortBy = null,
+            string? sortDirection = null,
             CancellationToken cancellationToken = default) =>
         {
-            var paginationRequest = new PaginationRequestDto(pageNumber, pagesize, searchTerm);
+            var paginationRequest = new PaginationRequestDto(pageNumber, pagesize, searchTerm, sortBy, sortDirection);
 
             var result = await _service.GetallAsync(paginationRequest, cancellationToken);
 

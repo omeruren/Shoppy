@@ -1,6 +1,7 @@
 ﻿using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shoppy.Business.Caching;
 using Shoppy.Business.Categories;
@@ -39,7 +40,7 @@ public class CategoryServiceTests
 
         _cacheService = new NoOpCacheService();
 
-        _service = new CategoryService(_context, _cacheService);
+        _service = new CategoryService(_context, _cacheService, NullLogger<CategoryService>.Instance);
     }
 
     [Fact]

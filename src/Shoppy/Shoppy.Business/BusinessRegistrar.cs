@@ -1,4 +1,5 @@
 ﻿using FluentValidation;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shoppy.Business.Auth;
 using Shoppy.Business.Caching;
@@ -15,10 +16,14 @@ namespace Shoppy.Business;
 
 public static class BusinessRegistrar
 {
-    public static IServiceCollection AddBusiness(this IServiceCollection services)
+    public static IServiceCollection AddBusiness(this IServiceCollection services, IConfiguration configuration)
     {
-        // In Memory Cache
-        services.AddMemoryCache();
+        // HybridCache — L1 in-process + Redis as L2 distributed cache
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = configuration.GetConnectionString("Redis");
+        });
+        services.AddHybridCache();
         services.AddSingleton<ICacheService, CacheService>();
 
         // Service registrations

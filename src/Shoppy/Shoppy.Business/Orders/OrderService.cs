@@ -1,5 +1,6 @@
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Caching;
 using Shoppy.Business.Extensions;
@@ -10,7 +11,7 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Orders;
 
-public sealed class OrderService(ApplicationDbContext _context, ICacheService _cacheService) : IOrderService
+public sealed class OrderService(ApplicationDbContext _context, ICacheService _cacheService, ILogger<OrderService> _logger) : IOrderService
 {
     private const string CacheKeyPrefix = "orders";
 
@@ -56,6 +57,7 @@ public sealed class OrderService(ApplicationDbContext _context, ICacheService _c
                    DeletedBy = p.DeletedBy
 
                })
+               .ApplyOrderSort(request.SortBy, request.SortDirection)
                .WithPagination(request, cancellationToken);
         }, TimeSpan.FromMinutes(5));
     }
@@ -99,7 +101,9 @@ public sealed class OrderService(ApplicationDbContext _context, ICacheService _c
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Order {OrderId} created", order.Id);
 
         return Result<string>.Success("Order created.", 201);
     }
@@ -162,7 +166,9 @@ public sealed class OrderService(ApplicationDbContext _context, ICacheService _c
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Order {OrderId} updated", order.Id);
 
         return "Order updated.";
     }
@@ -182,7 +188,9 @@ public sealed class OrderService(ApplicationDbContext _context, ICacheService _c
         _orders.Remove(order);
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cacheService.InvalidatePrefix(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Order {OrderId} deleted", order.Id);
 
         return "Order deleted.";
     }

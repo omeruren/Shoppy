@@ -417,15 +417,15 @@ Orijinal bulgu `/reset-password`'un `auth-fixed` rate limiter'dan muaf olduğunu
 | OrderItemService CRUD | ✅ Test var |
 | CategoryService CRUD | ✅ Test var |
 | ProductService | ✅ Test var *(doküman güncel değildi — artık `test/Shoppy.UnitTests/Services/ProductServiceTests.cs` mevcut)* |
-| AuthService | ❌ Hâlâ hiç yok |
+| AuthService | ✅ Test var *(Faz 3'te eklendi — `AuthServiceTests.cs`: login/family başlatma, rotation, reuse-detection)* |
 | UserService | ❌ Hâlâ hiç yok |
 | RoleService / PermissionAuthorizationHandler | ❌ Hâlâ hiç yok |
 | Validators | ✅ Kısmi |
 | Integration Tests | ✅ Başlangıç düzeyi |
 
-### 🟠 HIGH — AuthService, UserService, RoleService Hiç Test Edilmemiş
+### 🟠 HIGH — UserService, RoleService Hiç Test Edilmemiş
 
-En karmaşık iş mantığı (JWT, token rotation, OTP, password reset, permission hesaplama) hâlâ test yok. **DURUM:** 🔲 Açık — bu oturuma dahil değil, Faz 4 kapsamında.
+`AuthService` Faz 3'te (refresh token family tracking ile birlikte) test edildi. `UserService`/`RoleService` hâlâ test yok. **DURUM:** 🔲 Açık — bu oturuma dahil değil, Faz 4 kapsamında.
 
 ### 🟡 MEDIUM — `static _cacheResetToken` Test İzolasyonunu Bozuyor
 
@@ -534,23 +534,28 @@ Business→DataAccess bağımlılık yönü (§1'de "Clean Architecture'da ters 
 
 ---
 
-### 🟡 Faz 3 — Performans ve Güvenlik (tahmini ~2 hafta)
+### ✅ Faz 3 — Performans ve Güvenlik (bu oturumda tamamlandı)
 
-- [ ] Redis / HybridCache geçişi
-- [ ] Dinamik sorting desteği
-- [ ] Refresh token family tracking
-- [ ] Business logic katmanına `ILogger` inject
-- [ ] OpenTelemetry OTLP exporter (Grafana/Jaeger)
+- [x] Redis / HybridCache geçişi (`ICacheService` artık `HybridCache` üzerinde; L1 in-process + Redis L2, `docker-compose.yml`'daki `redis` servisiyle)
+- [x] Dinamik sorting desteği (allow-list edilmiş `SortBy`/`SortDirection`, `SortingExtension` üzerinden Product/Category/Order/OrderItem'da; Order/OrderItem ayrıca eksik olan default `OrderBy`'a kavuştu)
+- [x] Refresh token family tracking (`FamilyId`/`ReplacedByToken`; reuse tespitinde tüm family revoke ediliyor — canlı ortamda uçtan uca doğrulandı)
+- [x] Business logic katmanına `ILogger` inject (7 servisin tamamı — Auth/User/Role/Product/Order/OrderItem/Category)
+- [x] OpenTelemetry OTLP exporter (Jaeger — `docker-compose.yml`'daki `jaeger` servisine gRPC 4317 üzerinden, Console exporter da korunuyor)
 
-**Beklenen Kazanım:** Production performansı, güvenlik olgunluğu.
+**Kazanım:** Cache artık gerçek bir dağıtık backend'e (Redis) yaslanıyor ve tag-bazlı invalidation kullanıyor (eski `CancellationTokenSource`-per-prefix hilesi kaldırıldı); `RoleService` da `IMemoryCache`'den `ICacheService`'e taşınarak son doğrudan `IMemoryCache` bağımlılığı kapandı. Sorting artık `sortBy`/`sortDirection` query param'larıyla çalışıyor ve cache key'e dahil. Refresh token rotation artık bir "family" zinciri tutuyor; çalınmış/tekrar kullanılmış bir token tespit edildiğinde zincirdeki TÜM token'lar (henüz süresi dolmamış olanlar dahil) anında iptal ediliyor — canlı sunucu üzerinde login→rotate→reuse akışı çalıştırılarak doğrulandı. Business katmanında daha önce sıfır olan logging artık auth başarısı/başarısızlığı, permission-relevant olaylar (özellikle token reuse) ve CRUD işlemleri için mevcut. OTLP exporter Jaeger'e gerçek trace gönderiyor (canlı ortamda `Shoppy.WebAPI` servisi Jaeger UI'da görüldü). `docker-compose.yml` bu oturumda ilk kez eklendi (Faz 4'ün bir parçası öne çekildi).
+
+**Yeni testler:** `AuthServiceTests.cs` (daha önce hiç yoktu) — login yeni family başlatıyor, rotation aynı family'de kalıp `ReplacedByToken` set ediyor, reuse tüm family'yi revoke ediyor.
+
+**Not:** `test/Shoppy.IntegrationTests/ApiIntegrationTests.cs`'de bu oturuma dahil olmayan, önceden var olan bir kurulum sorunu tespit edildi — test sınıfı `IClassFixture<CustomWebApplicationFactory>` implement etmiyor, bu yüzden xUnit `factory` constructor parametresini çözemiyor (4 test "did not have matching fixture data" ile başarısız oluyor, `master` üzerinde de aynı hata mevcut). Faz 3 kapsamı dışında bırakıldı.
 
 ---
 
 ### 🔵 Faz 4 — Kurumsal Seviye Hazırlık (tahmini ~4 hafta)
 
-- [ ] `Dockerfile` + `docker-compose.yml`
+- [x] `docker-compose.yml` (Faz 3'te redis + jaeger servisleriyle eklendi — `Dockerfile` hâlâ açık)
+- [ ] `Dockerfile`
 - [ ] GitHub Actions CI/CD pipeline
-- [ ] `AuthService`, `UserService`, `RoleService` unit testleri
+- [ ] `UserService`, `RoleService` unit testleri (`AuthService` Faz 3'te eklendi — bkz. `AuthServiceTests.cs`)
 - [ ] Integration test genişletme (auth flow, permission enforcement, rate limiting)
 - [ ] Environment-specific appsettings stratejisi
 - [ ] Git geçmişinden secret temizliği (BFG/`git filter-repo` + force-push — ayrı onay gerektirir)

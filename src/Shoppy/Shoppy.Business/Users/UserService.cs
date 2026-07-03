@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Extensions;
 using Shoppy.Business.Users.DataTransferObjects;
@@ -7,7 +8,7 @@ using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Users;
 
-public sealed class UserService(UserManager<User> _userManager) : IUserService
+public sealed class UserService(UserManager<User> _userManager, ILogger<UserService> _logger) : IUserService
 {
     // ── Projection helper ────────────────────────────────────────────────
 
@@ -56,7 +57,12 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         var result = await _userManager.CreateAsync(user, request.Password);
 
         if (!result.Succeeded)
+        {
+            _logger.LogWarning("User creation failed for {UserName}: {Errors}", request.UserName, string.Join(", ", result.Errors.Select(e => e.Description)));
             return Result<string>.Failure(400, result.Errors.Select(e => e.Description).ToList());
+        }
+
+        _logger.LogInformation("User {UserId} ({UserName}) created", user.Id, user.UserName);
 
         return Result<string>.Success("User created successfully.", 201);
     }
@@ -75,7 +81,12 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
         var result = await _userManager.UpdateAsync(user);
 
         if (!result.Succeeded)
+        {
+            _logger.LogWarning("User update failed for {UserId}: {Errors}", user.Id, string.Join(", ", result.Errors.Select(e => e.Description)));
             return Result<string>.Failure(400, result.Errors.Select(e => e.Description).ToList());
+        }
+
+        _logger.LogInformation("User {UserId} updated by admin", user.Id);
 
         return "User updated successfully.";
     }
@@ -95,12 +106,16 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
                 return Result<string>.Failure(400, result.Errors.Select(e => e.Description).ToList());
+
+            _logger.LogInformation("User {UserId} soft-deleted", user.Id);
         }
         else
         {
             var result = await _userManager.DeleteAsync(user);
             if (!result.Succeeded)
                 return Result<string>.Failure(400, result.Errors.Select(e => e.Description).ToList());
+
+            _logger.LogInformation("User {UserId} hard-deleted", user.Id);
         }
 
         return "User deleted.";
@@ -156,7 +171,12 @@ public sealed class UserService(UserManager<User> _userManager) : IUserService
             user, request.CurrentPassword, request.NewPassword);
 
         if (!result.Succeeded)
+        {
+            _logger.LogWarning("Password change failed for user {UserId}", user.Id);
             return Result<string>.Failure(400, result.Errors.Select(e => e.Description).ToList());
+        }
+
+        _logger.LogInformation("User {UserId} changed their password", user.Id);
 
         return "Password changed successfully.";
     }

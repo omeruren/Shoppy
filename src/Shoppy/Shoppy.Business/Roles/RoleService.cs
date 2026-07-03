@@ -1,27 +1,27 @@
-﻿using Mapster;
+using Mapster;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Caching;
 using Shoppy.Business.Roles.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
 
 namespace Shoppy.Business.Roles;
 
-public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cache) : IRoleService
+public sealed class RoleService(ApplicationDbContext _context, ICacheService _cacheService, ILogger<RoleService> _logger) : IRoleService
 {
     private const string CacheKeyPrefix = "roles";
+    private const string CacheKey = "roles:all";
     private readonly DbSet<Role> _roles = _context.Set<Role>();
 
 
     // GET ALL ROLES
     public async Task<Result<List<Role>>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var roles = _cache.Get<List<Role>>(CacheKeyPrefix);
-
-        if (roles is null)
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, CacheKey, async () =>
         {
-            roles = await _roles
+            return await _roles
                .AsNoTracking()
                .OrderBy(r => r.Name)
                .Select(r => new Role
@@ -40,12 +40,7 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
                    DeletedAt = r.DeletedAt,
                })
                .ToListAsync(cancellationToken);
-
-            _cache.Set(CacheKeyPrefix, roles, TimeSpan.FromMinutes(5));
-
-        }
-
-        return roles;
+        }, TimeSpan.FromMinutes(5));
     }
 
 
@@ -67,7 +62,10 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
         bool isExists = await _roles.AnyAsync(r => r.Name == request.Name, cancellationToken);
 
         if (isExists)
+        {
+            _logger.LogWarning("Role creation attempted with already-existing name {RoleName}", request.Name);
             return Result<string>.Failure(409, ErrorMessages.Role.AlreadyExists);
+        }
 
         Role role = request.Adapt<Role>();
 
@@ -75,7 +73,9 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cache.Remove(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Role {RoleId} ({RoleName}) created", role.Id, role.Name);
 
         return Result<string>.Success("Role created.", 201);
     }
@@ -94,7 +94,10 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
             bool isNameExists = await _roles.AnyAsync(r => r.Name == request.Name, cancellationToken);
 
             if (isNameExists)
+            {
+                _logger.LogWarning("Role update attempted with already-existing name {RoleName}", request.Name);
                 return Result<string>.Failure(409, ErrorMessages.Role.NameAlreadyExists);
+            }
 
             request.Adapt(role);
 
@@ -106,8 +109,9 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            _logger.LogInformation("Role {RoleId} updated", role.Id);
         }
-        _cache.Remove(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
 
         return "Role updated.";
     }
@@ -125,7 +129,9 @@ public sealed class RoleService(ApplicationDbContext _context, IMemoryCache _cac
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        _cache.Remove(CacheKeyPrefix);
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Role {RoleId} deleted", role.Id);
 
         return "Role deleted.";
     }

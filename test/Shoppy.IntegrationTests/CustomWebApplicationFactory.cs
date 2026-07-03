@@ -5,16 +5,18 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shoppy.DataAccess.Context;
 using Testcontainers.MsSql;
+using Testcontainers.Redis;
 
 namespace Shoppy.IntegrationTests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     private readonly MsSqlContainer _sqlContainer = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+    private readonly RedisContainer _redisContainer = new RedisBuilder("redis:7-alpine").Build();
 
     public async Task InitializeAsync()
     {
-        await _sqlContainer.StartAsync();
+        await Task.WhenAll(_sqlContainer.StartAsync(), _redisContainer.StartAsync());
 
         // run migrations to setup database schema
         using var scope = Services.CreateScope();
@@ -28,13 +30,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                {"ConnectionStrings:SqlServer",_sqlContainer.GetConnectionString() }
+                {"ConnectionStrings:SqlServer",_sqlContainer.GetConnectionString() },
+                {"ConnectionStrings:Redis",_redisContainer.GetConnectionString() }
             });
         });
     }
 
     async Task IAsyncLifetime.DisposeAsync()
     {
-        await _sqlContainer.StopAsync();
+        await Task.WhenAll(_sqlContainer.StopAsync(), _redisContainer.StopAsync());
     }
 }
