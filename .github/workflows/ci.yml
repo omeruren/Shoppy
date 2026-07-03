@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        working-directory: src/Shoppy
+        run: dotnet restore Shoppy.slnx
+
+      - name: Build
+        working-directory: src/Shoppy
+        run: dotnet build Shoppy.slnx --no-restore
+
+      - name: Unit tests
+        working-directory: src/Shoppy
+        run: dotnet test ../../test/Shoppy.UnitTests --no-build --logger "console;verbosity=normal"
+
+      - name: Integration tests
+        working-directory: src/Shoppy
+        # Testcontainers.MsSql/Testcontainers.Redis need a Docker daemon — ubuntu-latest
+        # GitHub-hosted runners ship one and it's running by default.
+        run: dotnet test ../../test/Shoppy.IntegrationTests --no-build --logger "console;verbosity=normal"
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t shoppy-webapi:ci .
