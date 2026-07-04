@@ -31,6 +31,7 @@ public sealed class OrderItemService(ApplicationDbContext _context, ICacheServic
                     Id = i.Id,
                     ProductId = i.ProductId,
                     Quantity = i.Quantity,
+                    RowVersion = i.RowVersion,
 
                     CreatedAt = i.CreatedAt,
                     UpdatedAt = i.UpdatedAt,

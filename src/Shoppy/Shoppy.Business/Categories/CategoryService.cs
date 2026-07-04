@@ -28,6 +28,7 @@ public sealed class CategoryService(ApplicationDbContext _context, ICacheService
                 {
                     Id = p.Id,
                     Name = p.Name,
+                    RowVersion = p.RowVersion,
 
                     CreatedAt = p.CreatedAt,
                     CreatedBy = p.CreatedBy,

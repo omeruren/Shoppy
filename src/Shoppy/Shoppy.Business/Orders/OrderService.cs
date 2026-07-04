@@ -60,11 +60,13 @@ public sealed class OrderService(
                {
                    Id = p.Id,
                    OrderDate = p.OrderDate,
+                   RowVersion = p.RowVersion,
                    Items = p.Items.Select(i => new OrderItemResultDto
                    {
                        Id = i.Id,
                        ProductId = i.ProductId,
                        Quantity = i.Quantity,
+                       RowVersion = i.RowVersion,
 
                        CreatedAt = i.CreatedAt,
                        UpdatedAt = i.UpdatedAt,
@@ -104,11 +106,13 @@ public sealed class OrderService(
             {
                 Id = p.Id,
                 OrderDate = p.OrderDate,
+                RowVersion = p.RowVersion,
                 Items = p.Items.Select(i => new OrderItemResultDto
                 {
                     Id = i.Id,
                     ProductId = i.ProductId,
-                    Quantity = i.Quantity
+                    Quantity = i.Quantity,
+                    RowVersion = i.RowVersion
                 }).ToList()
             })
             // A non-admin's order belonging to someone else is treated the same as

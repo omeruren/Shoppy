@@ -34,6 +34,7 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
                     Price = s.product.Price,
                     CategoryId = s.product.CategoryId,
                     CategoryName = s.category!.Name,
+                    RowVersion = s.product.RowVersion,
 
                     CreatedAt = s.product.CreatedAt,
                     UpdatedAt = s.product.UpdatedAt,
@@ -60,6 +61,7 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
                 Price = s.product.Price,
                 CategoryId = s.product.CategoryId,
                 CategoryName = s.category!.Name,
+                RowVersion = s.product.RowVersion,
 
                 CreatedAt = s.product.CreatedAt,
                 UpdatedAt = s.product.UpdatedAt,

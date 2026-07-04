@@ -9,4 +9,5 @@ public sealed class ProductResultDto : BaseEntityDto
     public decimal Price { get; set; }
     public Guid CategoryId { get; set; }
     public string CategoryName { get; set; } = default!;
+    public byte[]? RowVersion { get; set; }
 }

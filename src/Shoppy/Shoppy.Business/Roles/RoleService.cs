@@ -17,17 +17,18 @@ public sealed class RoleService(ApplicationDbContext _context, ICacheService _ca
 
 
     // GET ALL ROLES
-    public async Task<Result<List<Role>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<List<RoleResultDto>>> GetAllAsync(CancellationToken cancellationToken)
     {
         return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, CacheKey, async () =>
         {
             return await _roles
                .AsNoTracking()
                .OrderBy(r => r.Name)
-               .Select(r => new Role
+               .Select(r => new RoleResultDto
                {
                    Id = r.Id,
                    Name = r.Name,
+                   RowVersion = r.RowVersion,
 
                    CreatedAt = r.CreatedAt,
                    CreatedBy = r.CreatedBy,
@@ -45,14 +46,14 @@ public sealed class RoleService(ApplicationDbContext _context, ICacheService _ca
 
 
     // GET ROLE BY ID
-    public async Task<Result<Role>> GetByIdAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Result<RoleResultDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         Role? role = await _roles.FindAsync(id, cancellationToken);
 
         if (role is null)
-            return Result<Role>.Failure(404, ErrorMessages.Role.NotFound);
+            return Result<RoleResultDto>.Failure(404, ErrorMessages.Role.NotFound);
 
-        return role;
+        return role.Adapt<RoleResultDto>();
     }
 
 
