@@ -45,12 +45,13 @@ public sealed class UserRoleModule : ICarterModule
 
 
         // DELETE USER ROLE
-        app.MapDelete("{id}", async (
-            Guid id,
+        app.MapDelete("{userId:guid}/{roleId:guid}", async (
+            Guid userId,
+            Guid roleId,
             IUserRoleService _service,
             CancellationToken cancellationToken) =>
         {
-            var result = await _service.DeleteAsync(id, cancellationToken);
+            var result = await _service.DeleteAsync(userId, roleId, cancellationToken);
 
             return result.ToHttpResult();
         });

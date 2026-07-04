@@ -38,9 +38,9 @@ public sealed class UserRoleService(ApplicationDbContext _context) : IUserRoleSe
         return Result<string>.Success("User role saved successfully.", 201);
     }
 
-    public async Task<Result<string>> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<Result<string>> DeleteAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
     {
-        UserRole? userRole = await _userRoles.FindAsync([id], cancellationToken);
+        UserRole? userRole = await _userRoles.FindAsync([userId, roleId], cancellationToken);
 
         if (userRole is null)
             return Result<string>.Failure(404, ErrorMessages.UserRole.NotFound);

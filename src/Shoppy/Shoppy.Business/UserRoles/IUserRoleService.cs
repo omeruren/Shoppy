@@ -9,5 +9,5 @@ public interface IUserRoleService
     Task<Result<List<UserRole>>> GetAllAsync(CancellationToken cancellationToken);
     Task<Result<string>> CreateAsync(UserRoleCreateDto request, CancellationToken cancellationToken);
 
-    Task<Result<string>> DeleteAsync(Guid id, CancellationToken cancellationToken);
+    Task<Result<string>> DeleteAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
 }
