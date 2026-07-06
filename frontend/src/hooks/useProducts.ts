@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import {
   createProduct,
   deleteProduct,
+  getProductById,
   getProducts,
   updateProduct,
 } from "@/api/products.api"
@@ -20,6 +21,14 @@ export function useProductsQuery(params: ResourceListQueryParams) {
     queryKey: productKeys.list(params),
     queryFn: () => getProducts(params),
     placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useProductQuery(id: string) {
+  return useQuery({
+    queryKey: [...productKeys.all, "detail", id] as const,
+    queryFn: () => getProductById(id),
+    enabled: !!id,
   })
 }
 

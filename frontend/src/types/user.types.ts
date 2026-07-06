@@ -22,3 +22,15 @@ export interface UserUpdateDto {
   userName: string
   email: string
 }
+
+export interface UserUpdateSelfDto {
+  firstName: string
+  lastName: string
+  userName: string
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string
+  newPassword: string
+  confirmNewPassword: string
+}

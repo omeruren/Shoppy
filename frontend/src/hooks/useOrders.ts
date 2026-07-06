@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { deleteOrder, getOrders, updateOrder } from "@/api/orders.api"
+import {
+  createOrder,
+  deleteOrder,
+  getOrders,
+  updateOrder,
+} from "@/api/orders.api"
 import type { ResourceListQueryParams } from "@/hooks/useResourceListState"
 import { handleApiError } from "@/lib/handle-api-error"
 
@@ -15,6 +20,18 @@ export function useOrdersQuery(params: ResourceListQueryParams) {
     queryKey: orderKeys.list(params),
     queryFn: () => getOrders(params),
     placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useCreateOrder() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createOrder,
+    onSuccess: () => {
+      toast.success("Siparişiniz alındı.")
+      queryClient.invalidateQueries({ queryKey: orderKeys.all })
+    },
+    onError: handleApiError,
   })
 }
 

@@ -14,6 +14,13 @@ export async function getProducts(params: ResourceListQueryParams) {
   return data
 }
 
+export async function getProductById(id: string) {
+  const { data } = await client.get<ApiResult<ProductResultDto>>(
+    `/products/${id}`
+  )
+  return data
+}
+
 export async function createProduct(request: ProductCreateDto) {
   const { data } = await client.post<ApiResult<string>>("/products", request)
   return data
