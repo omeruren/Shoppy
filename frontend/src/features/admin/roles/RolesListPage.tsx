@@ -1,5 +1,7 @@
+import type { ColumnDef, PaginationState } from "@tanstack/react-table"
 import { MoreHorizontalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { useState } from "react"
+import { DataTable } from "@/components/data-table/DataTable"
 import { ConfirmDeleteDialog } from "@/components/guards/ConfirmDeleteDialog"
 import { PermissionGuard } from "@/components/guards/PermissionGuard"
 import { Button } from "@/components/ui/button"
@@ -9,15 +11,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { RoleFormDialog } from "@/features/admin/roles/RoleFormDialog"
 import { useDeleteRole, useRolesQuery } from "@/hooks/useRoles"
 import type { RoleResultDto } from "@/types/role.types"
@@ -27,6 +20,10 @@ export function RolesListPage() {
   const deleteRole = useDeleteRole()
 
   const [searchTerm, setSearchTerm] = useState("")
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  })
   const [formState, setFormState] = useState<{
     open: boolean
     role?: RoleResultDto
@@ -36,6 +33,40 @@ export function RolesListPage() {
   const roles = (data?.data ?? []).filter((role) =>
     role.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const columns: ColumnDef<RoleResultDto>[] = [
+    { accessorKey: "name", header: "İsim" },
+    {
+      id: "actions",
+      header: "",
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm">
+              <MoreHorizontalIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <PermissionGuard permission="Roles.Update">
+              <DropdownMenuItem
+                onClick={() => setFormState({ open: true, role: row.original })}
+              >
+                <PencilIcon /> Düzenle
+              </DropdownMenuItem>
+            </PermissionGuard>
+            <PermissionGuard permission="Roles.Delete">
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setDeleteTarget(row.original)}
+              >
+                <TrashIcon /> Sil
+              </DropdownMenuItem>
+            </PermissionGuard>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ]
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,70 +79,18 @@ export function RolesListPage() {
         </PermissionGuard>
       </div>
 
-      <Input
-        value={searchTerm}
-        onChange={(event) => setSearchTerm(event.target.value)}
-        placeholder="Rol ara..."
-        className="max-w-xs"
+      <DataTable
+        columns={columns}
+        data={roles}
+        pageCount={1}
+        pagination={pagination}
+        onPaginationChange={setPagination}
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Rol ara..."
+        isLoading={isLoading}
+        emptyMessage="Rol bulunamadı."
       />
-
-      <div className="rounded-xl border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>İsim</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                  Yükleniyor...
-                </TableCell>
-              </TableRow>
-            ) : roles.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                  Rol bulunamadı.
-                </TableCell>
-              </TableRow>
-            ) : (
-              roles.map((role) => (
-                <TableRow key={role.id}>
-                  <TableCell>{role.name}</TableCell>
-                  <TableCell className="w-10">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
-                          <MoreHorizontalIcon />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <PermissionGuard permission="Roles.Update">
-                          <DropdownMenuItem
-                            onClick={() => setFormState({ open: true, role })}
-                          >
-                            <PencilIcon /> Düzenle
-                          </DropdownMenuItem>
-                        </PermissionGuard>
-                        <PermissionGuard permission="Roles.Delete">
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleteTarget(role)}
-                          >
-                            <TrashIcon /> Sil
-                          </DropdownMenuItem>
-                        </PermissionGuard>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
 
       <RoleFormDialog
         open={formState.open}

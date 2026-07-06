@@ -42,7 +42,11 @@ export function ManageUserRolesDialog({
   )
 
   const isLoading = rolesLoading || userRolesLoading
-  const isMutating = assignRole.isPending || removeRole.isPending
+  const pendingRoleId = assignRole.isPending
+    ? assignRole.variables?.roleId
+    : removeRole.isPending
+      ? removeRole.variables?.roleId
+      : undefined
 
   const toggleRole = (roleId: string, checked: boolean) => {
     if (checked) {
@@ -74,7 +78,7 @@ export function ManageUserRolesDialog({
                 <Checkbox
                   id={`role-${role.id}`}
                   checked={assignedRoleIds.has(role.id)}
-                  disabled={isMutating}
+                  disabled={pendingRoleId === role.id}
                   onCheckedChange={(checked) =>
                     toggleRole(role.id, checked === true)
                   }

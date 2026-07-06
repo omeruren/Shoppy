@@ -1,7 +1,7 @@
 import { create } from "zustand"
 
 const CART_STORAGE_KEY = "shoppy.cart"
-const MAX_ITEM_QUANTITY = 20
+export const MAX_ITEM_QUANTITY = 20
 
 export interface CartItem {
   productId: string

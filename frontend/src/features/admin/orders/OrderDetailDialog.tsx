@@ -111,6 +111,7 @@ export function OrderDetailDialog({
                       <Select
                         value={selectField.value}
                         onValueChange={selectField.onChange}
+                        disabled={updateOrder.isPending}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Ürün seçin" />
@@ -145,6 +146,7 @@ export function OrderDetailDialog({
                         onChange={(event) =>
                           quantityField.onChange(event.target.valueAsNumber)
                         }
+                        disabled={updateOrder.isPending}
                       />
                     )}
                   />
@@ -156,6 +158,7 @@ export function OrderDetailDialog({
                   size="icon-sm"
                   className="mt-6"
                   onClick={() => remove(index)}
+                  disabled={updateOrder.isPending}
                 >
                   <TrashIcon />
                 </Button>
@@ -172,6 +175,7 @@ export function OrderDetailDialog({
             variant="outline"
             size="sm"
             onClick={() => append({ productId: "", quantity: 1 })}
+            disabled={updateOrder.isPending}
           >
             <PlusIcon /> Ürün ekle
           </Button>

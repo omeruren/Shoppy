@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,7 +18,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { priceFormatter } from "@/features/customer/ProductCard"
-import { useCartStore } from "@/stores/cart.store"
+import { MAX_ITEM_QUANTITY, useCartStore } from "@/stores/cart.store"
 
 export function CartDrawer() {
   const [open, setOpen] = useState(false)
@@ -63,11 +64,14 @@ export function CartDrawer() {
                       type="button"
                       variant="outline"
                       size="icon-xs"
-                      onClick={() =>
-                        item.quantity <= 1
-                          ? removeItem(item.productId)
-                          : updateQuantity(item.productId, item.quantity - 1)
-                      }
+                      onClick={() => {
+                        if (item.quantity <= 1) {
+                          removeItem(item.productId)
+                          toast.success(`${item.name} sepetten çıkarıldı.`)
+                        } else {
+                          updateQuantity(item.productId, item.quantity - 1)
+                        }
+                      }}
                     >
                       <MinusIcon />
                     </Button>
@@ -78,9 +82,15 @@ export function CartDrawer() {
                       type="button"
                       variant="outline"
                       size="icon-xs"
-                      onClick={() =>
+                      onClick={() => {
+                        if (item.quantity >= MAX_ITEM_QUANTITY) {
+                          toast.warning(
+                            `Bir üründen en fazla ${MAX_ITEM_QUANTITY} adet ekleyebilirsiniz.`
+                          )
+                          return
+                        }
                         updateQuantity(item.productId, item.quantity + 1)
-                      }
+                      }}
                     >
                       <PlusIcon />
                     </Button>
@@ -89,7 +99,10 @@ export function CartDrawer() {
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    onClick={() => removeItem(item.productId)}
+                    onClick={() => {
+                      removeItem(item.productId)
+                      toast.success(`${item.name} sepetten çıkarıldı.`)
+                    }}
                   >
                     <Trash2Icon />
                   </Button>

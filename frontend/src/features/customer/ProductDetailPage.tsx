@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { priceFormatter } from "@/features/customer/ProductCard"
 import { useProductQuery } from "@/hooks/useProducts"
-import { useCartStore } from "@/stores/cart.store"
+import { MAX_ITEM_QUANTITY, useCartStore } from "@/stores/cart.store"
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -73,7 +73,17 @@ export function ProductDetailPage() {
             type="button"
             variant="outline"
             size="icon-sm"
-            onClick={() => setQuantity((q) => Math.min(20, q + 1))}
+            onClick={() =>
+              setQuantity((q) => {
+                if (q >= MAX_ITEM_QUANTITY) {
+                  toast.warning(
+                    `Bir üründen en fazla ${MAX_ITEM_QUANTITY} adet ekleyebilirsiniz.`
+                  )
+                  return q
+                }
+                return q + 1
+              })
+            }
           >
             <PlusIcon />
           </Button>

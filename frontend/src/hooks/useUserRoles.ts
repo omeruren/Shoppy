@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import {
   assignUserRole,
   getUserRoles,
@@ -22,6 +23,7 @@ export function useAssignUserRole() {
   return useMutation({
     mutationFn: assignUserRole,
     onSuccess: () => {
+      toast.success("Rol atandı.")
       queryClient.invalidateQueries({ queryKey: userRoleKeys.all })
     },
     onError: handleApiError,
@@ -34,6 +36,7 @@ export function useRemoveUserRole() {
     mutationFn: ({ userId, roleId }: { userId: string; roleId: string }) =>
       removeUserRole(userId, roleId),
     onSuccess: () => {
+      toast.success("Rol kaldırıldı.")
       queryClient.invalidateQueries({ queryKey: userRoleKeys.all })
     },
     onError: handleApiError,

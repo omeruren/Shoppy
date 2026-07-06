@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { Link, useNavigate } from "react-router-dom"
+import { toast } from "sonner"
 import { z } from "zod"
 import { forgotPassword } from "@/api/auth.api"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,9 @@ export function ForgotPasswordPage() {
 
   const mutation = useMutation({
     mutationFn: forgotPassword,
+    onError: () => {
+      toast.error("Bir şeyler ters gitti, lütfen tekrar deneyin.")
+    },
     // Backend always returns success here regardless of whether the email
     // exists, to prevent user enumeration — the frontend must not distinguish either.
     onSettled: (_data, _error, variables) => {

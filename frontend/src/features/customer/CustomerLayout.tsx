@@ -1,8 +1,10 @@
 import { useState } from "react"
 import {
   MenuIcon,
+  MoonIcon,
   StoreIcon,
   ShoppingBagIcon,
+  SunIcon,
   UserIcon,
 } from "lucide-react"
 import type { ComponentType } from "react"
@@ -12,6 +14,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { CartDrawer } from "@/features/customer/CartDrawer"
 import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
+import { useTheme } from "@/providers/ThemeProvider"
 
 interface NavItem {
   label: string
@@ -58,6 +61,7 @@ function CustomerNav({
 
 export function CustomerLayout() {
   const { logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
@@ -104,6 +108,14 @@ export function CustomerLayout() {
 
         <div className="flex items-center gap-2">
           <CartDrawer />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleTheme}
+            aria-label="Temayı değiştir"
+          >
+            {theme === "dark" ? <SunIcon /> : <MoonIcon />}
+          </Button>
           <Button variant="outline" size="sm" onClick={logout}>
             Çıkış Yap
           </Button>

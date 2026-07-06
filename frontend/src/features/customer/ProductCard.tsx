@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { useCartStore } from "@/stores/cart.store"
+import { MAX_ITEM_QUANTITY, useCartStore } from "@/stores/cart.store"
 import type { ProductResultDto } from "@/types/product.types"
 
 export const priceFormatter = new Intl.NumberFormat("tr-TR", {
@@ -58,7 +58,17 @@ export function ProductCard({ product }: { product: ProductResultDto }) {
             type="button"
             variant="outline"
             size="icon-sm"
-            onClick={() => setQuantity((q) => Math.min(20, q + 1))}
+            onClick={() =>
+              setQuantity((q) => {
+                if (q >= MAX_ITEM_QUANTITY) {
+                  toast.warning(
+                    `Bir üründen en fazla ${MAX_ITEM_QUANTITY} adet ekleyebilirsiniz.`
+                  )
+                  return q
+                }
+                return q + 1
+              })
+            }
           >
             <PlusIcon />
           </Button>
