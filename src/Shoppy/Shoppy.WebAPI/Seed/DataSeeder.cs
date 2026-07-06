@@ -51,27 +51,27 @@ internal static class DataSeeder
 
     private static async Task<List<Product>> SeedProductsAsync(ApplicationDbContext context, Dictionary<string, Category> categories)
     {
-        (string Name, string Description, decimal Price, string Category)[] catalog =
+        (string Name, string Description, decimal Price, string Category, string ImageUrl)[] catalog =
         [
-            ("Wireless Mouse", "Ergonomic wireless mouse with USB receiver.", 249.90m, "Electronics"),
-            ("Mechanical Keyboard", "RGB backlit mechanical keyboard, blue switches.", 899.00m, "Electronics"),
-            ("27-inch Monitor", "27-inch 1440p IPS monitor, 144Hz refresh rate.", 4299.00m, "Electronics"),
+            ("Wireless Mouse", "Ergonomic wireless mouse with USB receiver.", 249.90m, "Electronics", "https://commons.wikimedia.org/wiki/Special:FilePath/Microsoft-wireless-mouse.jpg"),
+            ("Mechanical Keyboard", "RGB backlit mechanical keyboard, blue switches.", 899.00m, "Electronics", "https://commons.wikimedia.org/wiki/Special:FilePath/Keychron_K4_mechanical_keyboard.jpg"),
+            ("27-inch Monitor", "27-inch 1440p IPS monitor, 144Hz refresh rate.", 4299.00m, "Electronics", "https://commons.wikimedia.org/wiki/Special:FilePath/Acer_AL1706_LCD_monitor.jpg"),
 
-            ("Men's Denim Jacket", "Classic fit denim jacket.", 649.90m, "Clothing"),
-            ("Women's Running Shoes", "Lightweight breathable running shoes.", 799.50m, "Clothing"),
-            ("Cotton T-Shirt", "Basic crew neck cotton t-shirt.", 129.90m, "Clothing"),
+            ("Men's Denim Jacket", "Classic fit denim jacket.", 649.90m, "Clothing", "https://commons.wikimedia.org/wiki/Special:FilePath/Denim_jacket.jpg"),
+            ("Women's Running Shoes", "Lightweight breathable running shoes.", 799.50m, "Clothing", "https://commons.wikimedia.org/wiki/Special:FilePath/New_Balance_1225_Running_Shoes.jpg"),
+            ("Cotton T-Shirt", "Basic crew neck cotton t-shirt.", 129.90m, "Clothing", "https://commons.wikimedia.org/wiki/Special:FilePath/Tallinn_Goethe_White-T-Shirt_2009.JPG"),
 
-            ("Clean Code", "A Handbook of Agile Software Craftsmanship.", 189.00m, "Books"),
-            ("The Pragmatic Programmer", "Your journey to mastery.", 219.00m, "Books"),
-            ("Design Patterns", "Elements of Reusable Object-Oriented Software.", 249.00m, "Books"),
+            ("Clean Code", "A Handbook of Agile Software Craftsmanship.", 189.00m, "Books", "https://covers.openlibrary.org/b/isbn/0132350882-L.jpg"),
+            ("The Pragmatic Programmer", "Your journey to mastery.", 219.00m, "Books", "https://covers.openlibrary.org/b/isbn/0135957052-L.jpg"),
+            ("Design Patterns", "Elements of Reusable Object-Oriented Software.", 249.00m, "Books", "https://covers.openlibrary.org/b/isbn/0201633612-L.jpg"),
 
-            ("Stand Mixer", "5-quart stand mixer with multiple attachments.", 3499.00m, "Home & Kitchen"),
-            ("Non-Stick Frying Pan", "28cm non-stick frying pan.", 349.90m, "Home & Kitchen"),
-            ("Ceramic Dinner Set", "16-piece ceramic dinner set.", 899.00m, "Home & Kitchen"),
+            ("Stand Mixer", "5-quart stand mixer with multiple attachments.", 3499.00m, "Home & Kitchen", "https://commons.wikimedia.org/wiki/Special:FilePath/KitchenAid_Stand_Mixer.jpg"),
+            ("Non-Stick Frying Pan", "28cm non-stick frying pan.", 349.90m, "Home & Kitchen", "https://commons.wikimedia.org/wiki/Special:FilePath/Frying_pan.jpeg"),
+            ("Ceramic Dinner Set", "16-piece ceramic dinner set.", 899.00m, "Home & Kitchen", "https://commons.wikimedia.org/wiki/Special:FilePath/Fiesta_Classic_Set_in_Meadow.jpg"),
 
-            ("Yoga Mat", "Non-slip yoga mat, 6mm thick.", 249.00m, "Sports & Outdoors"),
-            ("Adjustable Dumbbell Set", "Adjustable dumbbell pair, 2-20kg.", 2199.00m, "Sports & Outdoors"),
-            ("Camping Tent", "2-person waterproof camping tent.", 1599.00m, "Sports & Outdoors"),
+            ("Yoga Mat", "Non-slip yoga mat, 6mm thick.", 249.00m, "Sports & Outdoors", "https://commons.wikimedia.org/wiki/Special:FilePath/Yoga_mat.jpg"),
+            ("Adjustable Dumbbell Set", "Adjustable dumbbell pair, 2-20kg.", 2199.00m, "Sports & Outdoors", "https://commons.wikimedia.org/wiki/Special:FilePath/TwoDumbbells.JPG"),
+            ("Camping Tent", "2-person waterproof camping tent.", 1599.00m, "Sports & Outdoors", "https://commons.wikimedia.org/wiki/Special:FilePath/Dome_tent.JPG"),
         ];
 
         var names = catalog.Select(c => c.Name).ToArray();
@@ -90,6 +90,7 @@ internal static class DataSeeder
                 Description = item.Description,
                 Price = item.Price,
                 CategoryId = categories[item.Category].Id,
+                ImageUrl = item.ImageUrl,
             };
 
             context.Products.Add(product);
