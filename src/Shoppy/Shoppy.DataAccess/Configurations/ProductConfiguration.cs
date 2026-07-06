@@ -19,6 +19,9 @@ internal class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(p => p.Description)
             .HasMaxLength(500);
 
+        builder.Property(p => p.ImageUrl)
+            .HasMaxLength(2048);
+
         builder.Property(p => p.Price)
             .HasColumnType("decimal(18,2)");
 

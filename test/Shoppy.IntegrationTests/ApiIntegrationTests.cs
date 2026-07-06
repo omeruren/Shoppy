@@ -205,7 +205,7 @@ public class ApiIntegrationTests : IClassFixture<CustomWebApplicationFactory>
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/products");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            request.Content = JsonContent.Create(new ProductCreateDto(productName, null, 9.99m, categoryId));
+            request.Content = JsonContent.Create(new ProductCreateDto(productName, null, 9.99m, categoryId, null));
             return _client.SendAsync(request);
         }
 

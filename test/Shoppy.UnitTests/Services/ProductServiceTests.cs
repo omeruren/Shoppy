@@ -157,7 +157,7 @@ public class ProductServiceTests
     public async Task CreateAsync_Should_Create_Product_When_Not_Exists()
     {
         var category = await SeedCategoryAsync();
-        var request = new ProductCreateDto("New Product", "desc", 19.99m, category.Id);
+        var request = new ProductCreateDto("New Product", "desc", 19.99m, category.Id, null);
 
         var result = await _service.CreateAsync(request, CancellationToken.None);
 
@@ -175,13 +175,30 @@ public class ProductServiceTests
         var category = await SeedCategoryAsync();
         await SeedProductAsync("Duplicate", category.Id);
 
-        var request = new ProductCreateDto("Duplicate", null, 5m, category.Id);
+        var request = new ProductCreateDto("Duplicate", null, 5m, category.Id, null);
 
         var result = await _service.CreateAsync(request, CancellationToken.None);
 
         result.IsSuccessful.Should().BeFalse();
         result.StatusCode.Should().Be(409);
         result.ErrorMessages.Should().Contain("Product already exists.");
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Persist_ImageUrl_And_Return_It_From_Queries()
+    {
+        var category = await SeedCategoryAsync();
+        var request = new ProductCreateDto("Imaged Product", null, 19.99m, category.Id, "https://example.com/image.png");
+
+        await _service.CreateAsync(request, CancellationToken.None);
+
+        var product = await _context.Products.FirstAsync(p => p.Name == "Imaged Product");
+
+        var byId = await _service.GetByIdAsync(product.Id, CancellationToken.None);
+        byId.Data!.ImageUrl.Should().Be("https://example.com/image.png");
+
+        var all = await _service.GetAllAsync(new PaginationRequestDto(1, 10, string.Empty), CancellationToken.None);
+        all.Data!.Data.Single(p => p.Id == product.Id).ImageUrl.Should().Be("https://example.com/image.png");
     }
 
     // ─────────────────────────────────────────────
@@ -192,7 +209,7 @@ public class ProductServiceTests
     public async Task UpdateAsync_Should_Update_Product_When_Exists()
     {
         var product = await SeedProductAsync();
-        var request = new ProductUpdateDto(product.Id, "Updated Name", "desc", 29.99m, product.CategoryId);
+        var request = new ProductUpdateDto(product.Id, "Updated Name", "desc", 29.99m, product.CategoryId, null);
 
         var result = await _service.UpdateAsync(request, CancellationToken.None);
 
@@ -206,7 +223,7 @@ public class ProductServiceTests
     [Fact]
     public async Task UpdateAsync_Should_Fail_When_Product_Does_Not_Exist()
     {
-        var request = new ProductUpdateDto(Guid.NewGuid(), "Name", null, 1m, Guid.NewGuid());
+        var request = new ProductUpdateDto(Guid.NewGuid(), "Name", null, 1m, Guid.NewGuid(), null);
 
         var result = await _service.UpdateAsync(request, CancellationToken.None);
 
@@ -222,7 +239,7 @@ public class ProductServiceTests
         var product = await SeedProductAsync("Original", category.Id);
         await SeedProductAsync("Taken", category.Id);
 
-        var request = new ProductUpdateDto(product.Id, "Taken", null, product.Price, category.Id);
+        var request = new ProductUpdateDto(product.Id, "Taken", null, product.Price, category.Id, null);
 
         var result = await _service.UpdateAsync(request, CancellationToken.None);
 
