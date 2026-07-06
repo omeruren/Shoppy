@@ -74,9 +74,10 @@ public class OrderServiceTests
         var order = new Order { OrderDate = DateTimeOffset.UtcNow, Items = [] };
         for (var i = 0; i < itemCount; i++)
         {
+            var product = await SeedProductAsync($"Seeded Product {i}");
             order.Items.Add(new OrderItem
             {
-                ProductId = Guid.NewGuid(),
+                ProductId = product.Id,
                 Quantity = i + 1,
                 UnitPrice = (i + 1) * 10m
             });
@@ -84,6 +85,16 @@ public class OrderServiceTests
         _context.Orders.Add(order);
         await _context.SaveChangesAsync();
         return order;
+    }
+
+    private async Task<Product> SeedProductAsync(string name = "Widget", decimal price = 9.99m)
+    {
+        var category = new Category { Name = "Electronics" };
+        _context.Categories.Add(category);
+        var product = new Product { Name = name, Price = price, CategoryId = category.Id };
+        _context.Products.Add(product);
+        await _context.SaveChangesAsync();
+        return product;
     }
 
     // ─────────────────────────────────────────────
@@ -251,10 +262,12 @@ public class OrderServiceTests
     public async Task CreateAsync_Should_Create_Order_And_Return_Success()
     {
         // Arrange
+        var productA = await SeedProductAsync("Product A");
+        var productB = await SeedProductAsync("Product B");
         var dto = new OrderCreateDto(
         [
-            new OrderItemCreateDto(Guid.NewGuid(), 2),
-            new OrderItemCreateDto(Guid.NewGuid(), 5)
+            new OrderItemCreateDto(productA.Id, 2),
+            new OrderItemCreateDto(productB.Id, 5)
         ]);
 
         // Act
@@ -270,7 +283,8 @@ public class OrderServiceTests
     public async Task CreateAsync_Should_Set_OrderDate_To_Current_Time()
     {
         // Arrange
-        var dto = new OrderCreateDto([new OrderItemCreateDto(Guid.NewGuid(), 1)]);
+        var product = await SeedProductAsync();
+        var dto = new OrderCreateDto([new OrderItemCreateDto(product.Id, 1)]);
         var before = DateTimeOffset.Now.AddSeconds(-1);
 
         // Act
@@ -286,7 +300,8 @@ public class OrderServiceTests
     public async Task CreateAsync_Should_Set_CreatedBy_To_Authenticated_UserId()
     {
         // Arrange
-        var dto = new OrderCreateDto([new OrderItemCreateDto(Guid.NewGuid(), 1)]);
+        var product = await SeedProductAsync();
+        var dto = new OrderCreateDto([new OrderItemCreateDto(product.Id, 1)]);
 
         // Act
         await _service.CreateAsync(dto, CancellationToken.None);
@@ -294,6 +309,38 @@ public class OrderServiceTests
         // Assert
         var saved = _context.Orders.First();
         saved.CreatedBy.Should().Be(_userId);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Set_UnitPrice_From_Current_Product_Price()
+    {
+        // Arrange
+        var product = await SeedProductAsync(price: 149.90m);
+        var dto = new OrderCreateDto([new OrderItemCreateDto(product.Id, 3)]);
+
+        // Act
+        var result = await _service.CreateAsync(dto, CancellationToken.None);
+
+        // Assert
+        result.IsSuccessful.Should().BeTrue();
+        var saved = await _context.Orders.Include(o => o.Items).FirstAsync();
+        saved.Items.Single().UnitPrice.Should().Be(149.90m);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_Fail_When_Product_Does_Not_Exist()
+    {
+        // Arrange
+        var dto = new OrderCreateDto([new OrderItemCreateDto(Guid.NewGuid(), 1)]);
+
+        // Act
+        var result = await _service.CreateAsync(dto, CancellationToken.None);
+
+        // Assert
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+        result.ErrorMessages.Should().Contain("Product not found.");
+        _context.Orders.Should().BeEmpty();
     }
 
     // ─────────────────────────────────────────────

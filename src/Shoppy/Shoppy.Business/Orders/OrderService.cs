@@ -65,7 +65,9 @@ public sealed class OrderService(
                    {
                        Id = i.Id,
                        ProductId = i.ProductId,
+                       ProductName = i.Product.Name,
                        Quantity = i.Quantity,
+                       UnitPrice = i.UnitPrice,
                        RowVersion = i.RowVersion,
 
                        CreatedAt = i.CreatedAt,
@@ -111,7 +113,9 @@ public sealed class OrderService(
                 {
                     Id = i.Id,
                     ProductId = i.ProductId,
+                    ProductName = i.Product.Name,
                     Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
                     RowVersion = i.RowVersion
                 }).ToList()
             })
@@ -132,6 +136,19 @@ public sealed class OrderService(
         var order = request.Adapt<Order>();
 
         order.OrderDate = DateTimeOffset.Now;
+
+        var productIds = order.Items.Select(i => i.ProductId).ToList();
+        var products = await _context.Set<Product>()
+            .Where(p => productIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, cancellationToken);
+
+        foreach (var item in order.Items)
+        {
+            if (!products.TryGetValue(item.ProductId, out var product))
+                return Result<string>.Failure(400, ErrorMessages.Product.NotFound);
+
+            item.UnitPrice = product.Price;
+        }
 
         _orders.Add(order);
 
