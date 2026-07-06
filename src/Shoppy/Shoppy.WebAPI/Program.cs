@@ -150,6 +150,9 @@ var app = builder.Build();
 // Seed built-in Admin/Customer roles + their permissions
 await RolePermissionSeeder.SeedAsync(app.Services);
 
+// Seed sample Categories/Products/Users/Orders for local development
+await DataSeeder.SeedAsync(app.Services);
+
 
 // Correlation Id Middleware (must be early in pipeline)
 app.UseMiddleware<CorrelationMiddleware>();
