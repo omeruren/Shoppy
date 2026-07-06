@@ -12,7 +12,12 @@ import { UsersListPage } from "@/features/admin/users/UsersListPage"
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage"
 import { LoginPage } from "@/features/auth/LoginPage"
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage"
-import { HomePage } from "@/features/home/HomePage"
+import { CheckoutPage } from "@/features/customer/CheckoutPage"
+import { CustomerLayout } from "@/features/customer/CustomerLayout"
+import { MyOrdersPage } from "@/features/customer/MyOrdersPage"
+import { ProductCatalogPage } from "@/features/customer/ProductCatalogPage"
+import { ProductDetailPage } from "@/features/customer/ProductDetailPage"
+import { ProfilePage } from "@/features/customer/ProfilePage"
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
@@ -21,8 +26,17 @@ export const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
-      { path: "/", element: <HomePage /> },
       { path: "/403", element: <ForbiddenPage /> },
+      {
+        element: <CustomerLayout />,
+        children: [
+          { index: true, element: <ProductCatalogPage /> },
+          { path: "products/:id", element: <ProductDetailPage /> },
+          { path: "checkout", element: <CheckoutPage /> },
+          { path: "orders", element: <MyOrdersPage /> },
+          { path: "profile", element: <ProfilePage /> },
+        ],
+      },
       {
         path: "/admin",
         element: <AdminLayout />,
