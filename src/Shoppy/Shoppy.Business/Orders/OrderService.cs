@@ -66,6 +66,7 @@ public sealed class OrderService(
                        Id = i.Id,
                        ProductId = i.ProductId,
                        ProductName = i.Product.Name,
+                       ImageUrl = i.Product.ImageUrl,
                        Quantity = i.Quantity,
                        UnitPrice = i.UnitPrice,
                        RowVersion = i.RowVersion,
@@ -114,6 +115,7 @@ public sealed class OrderService(
                     Id = i.Id,
                     ProductId = i.ProductId,
                     ProductName = i.Product.Name,
+                    ImageUrl = i.Product.ImageUrl,
                     Quantity = i.Quantity,
                     UnitPrice = i.UnitPrice,
                     RowVersion = i.RowVersion

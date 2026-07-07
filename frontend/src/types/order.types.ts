@@ -3,6 +3,7 @@ import type { BaseEntity } from "@/types/api.types"
 export interface OrderItemResultDto extends BaseEntity {
   productId: string
   productName: string
+  imageUrl: string | null
   quantity: number
   unitPrice: number
   rowVersion: string | null

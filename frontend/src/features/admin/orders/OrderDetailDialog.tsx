@@ -3,6 +3,7 @@ import { useEffect } from "react"
 import { Controller, useFieldArray, useForm } from "react-hook-form"
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { z } from "zod"
+import { ProductImage } from "@/components/ProductImage"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -119,6 +120,12 @@ export function OrderDetailDialog({
                         <SelectContent>
                           {products.map((product) => (
                             <SelectItem key={product.id} value={product.id}>
+                              <ProductImage
+                                src={product.imageUrl}
+                                alt={product.name}
+                                className="size-5 shrink-0 rounded-sm"
+                                iconClassName="size-3"
+                              />
                               {product.name}
                             </SelectItem>
                           ))}

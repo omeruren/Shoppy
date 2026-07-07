@@ -1,4 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { ProductImage } from "@/components/ProductImage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -47,9 +48,15 @@ export function MyOrdersPage() {
                   {order.items.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between text-sm"
+                      className="flex items-center gap-2 text-sm"
                     >
-                      <span>
+                      <ProductImage
+                        src={item.imageUrl}
+                        alt={item.productName}
+                        className="h-10 w-10 shrink-0 rounded-md"
+                        iconClassName="size-4"
+                      />
+                      <span className="flex-1">
                         {item.productName} × {item.quantity}
                       </span>
                       <span className="font-medium">
