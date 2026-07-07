@@ -57,7 +57,7 @@ export function LoginPage() {
       const from = (location.state as { from?: Location })?.from?.pathname
       const redirectTo = user?.roles.includes("Admin")
         ? "/admin/dashboard"
-        : (from ?? "/")
+        : (from ?? "/products")
       navigate(redirectTo, { replace: true })
     },
     onError: (error) => {

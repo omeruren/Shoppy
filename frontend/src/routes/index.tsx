@@ -18,8 +18,10 @@ import { MyOrdersPage } from "@/features/customer/MyOrdersPage"
 import { ProductCatalogPage } from "@/features/customer/ProductCatalogPage"
 import { ProductDetailPage } from "@/features/customer/ProductDetailPage"
 import { ProfilePage } from "@/features/customer/ProfilePage"
+import { LandingPage } from "@/features/marketing/LandingPage"
 
 export const router = createBrowserRouter([
+  { path: "/", element: <LandingPage /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/forgot-password", element: <ForgotPasswordPage /> },
   { path: "/reset-password", element: <ResetPasswordPage /> },
@@ -30,7 +32,7 @@ export const router = createBrowserRouter([
       {
         element: <CustomerLayout />,
         children: [
-          { index: true, element: <ProductCatalogPage /> },
+          { path: "products", element: <ProductCatalogPage /> },
           { path: "products/:id", element: <ProductDetailPage /> },
           { path: "checkout", element: <CheckoutPage /> },
           { path: "orders", element: <MyOrdersPage /> },

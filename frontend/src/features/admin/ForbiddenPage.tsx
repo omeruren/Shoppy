@@ -7,7 +7,7 @@ export function ForbiddenPage() {
       <p className="text-2xl font-semibold">403</p>
       <p className="text-text-secondary">Bu işlem için yetkiniz yok.</p>
       <Button asChild>
-        <Link to="/">Ana sayfaya dön</Link>
+        <Link to="/products">Ana sayfaya dön</Link>
       </Button>
     </div>
   )

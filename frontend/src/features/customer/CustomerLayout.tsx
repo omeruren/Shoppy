@@ -24,7 +24,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Ürünler", to: "/", icon: StoreIcon, end: true },
+  { label: "Ürünler", to: "/products", icon: StoreIcon, end: true },
   { label: "Siparişlerim", to: "/orders", icon: ShoppingBagIcon },
   { label: "Profilim", to: "/profile", icon: UserIcon },
 ]
