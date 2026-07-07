@@ -8,12 +8,13 @@ export interface CartItem {
   name: string
   price: number
   quantity: number
+  imageUrl: string | null
 }
 
 interface CartState {
   items: CartItem[]
   addItem: (
-    product: { id: string; name: string; price: number },
+    product: { id: string; name: string; price: number; imageUrl: string | null },
     quantity: number
   ) => void
   updateQuantity: (productId: string, quantity: number) => void
@@ -60,6 +61,7 @@ export const useCartStore = create<CartState>((set, get) => ({
             name: product.name,
             price: product.price,
             quantity: Math.min(quantity, MAX_ITEM_QUANTITY),
+            imageUrl: product.imageUrl,
           },
         ]
 

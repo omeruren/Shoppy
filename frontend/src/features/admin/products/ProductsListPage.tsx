@@ -2,6 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { useState } from "react"
 import { DataTable } from "@/components/data-table/DataTable"
+import { ProductImage } from "@/components/ProductImage"
 import { ConfirmDeleteDialog } from "@/components/guards/ConfirmDeleteDialog"
 import { PermissionGuard } from "@/components/guards/PermissionGuard"
 import { Button } from "@/components/ui/button"
@@ -44,6 +45,18 @@ export function ProductsListPage() {
   )
 
   const columns: ColumnDef<ProductResultDto>[] = [
+    {
+      id: "image",
+      header: "Görsel",
+      cell: ({ row }) => (
+        <ProductImage
+          src={row.original.imageUrl}
+          alt={row.original.name}
+          className="h-10 w-10 rounded-md"
+          iconClassName="size-4"
+        />
+      ),
+    },
     { accessorKey: "name", header: "İsim" },
     { accessorKey: "categoryName", header: "Kategori" },
     {

@@ -3,6 +3,7 @@ import type { BaseEntity } from "@/types/api.types"
 export interface ProductResultDto extends BaseEntity {
   name: string
   description: string | null
+  imageUrl: string | null
   price: number
   categoryId: string
   categoryName: string
@@ -12,6 +13,7 @@ export interface ProductResultDto extends BaseEntity {
 export interface ProductCreateDto {
   name: string
   description?: string
+  imageUrl?: string
   price: number
   categoryId: string
 }

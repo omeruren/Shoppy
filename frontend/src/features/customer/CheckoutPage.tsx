@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom"
+import { ProductImage } from "@/components/ProductImage"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { priceFormatter } from "@/features/customer/ProductCard"
@@ -17,7 +18,7 @@ export function CheckoutPage() {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
         <p className="text-muted-foreground">Sepetiniz boş.</p>
-        <Link to="/" className="text-accent hover:underline">
+        <Link to="/products" className="text-accent hover:underline">
           Alışverişe devam et
         </Link>
       </div>
@@ -45,8 +46,14 @@ export function CheckoutPage() {
       <Card>
         <CardContent className="flex flex-col gap-3">
           {items.map((item) => (
-            <div key={item.productId} className="flex items-center justify-between text-sm">
-              <span>
+            <div key={item.productId} className="flex items-center gap-2 text-sm">
+              <ProductImage
+                src={item.imageUrl}
+                alt={item.name}
+                className="h-10 w-10 shrink-0 rounded-md"
+                iconClassName="size-4"
+              />
+              <span className="flex-1">
                 {item.name} × {item.quantity}
               </span>
               <span className="font-medium">

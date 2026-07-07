@@ -27,6 +27,10 @@ import type { ProductResultDto } from "@/types/product.types"
 const productSchema = z.object({
   name: z.string().min(1, "İsim zorunludur."),
   description: z.string().optional(),
+  imageUrl: z
+    .string()
+    .max(2048, "Görsel URL'si 2048 karakterden uzun olamaz.")
+    .optional(),
   price: z
     .string()
     .min(1, "Fiyat zorunludur.")
@@ -39,6 +43,7 @@ type ProductFormValues = z.infer<typeof productSchema>
 const emptyValues: ProductFormValues = {
   name: "",
   description: "",
+  imageUrl: "",
   price: "",
   categoryId: "",
 }
@@ -77,6 +82,7 @@ export function ProductFormDialog({
         ? {
             name: product.name,
             description: product.description ?? "",
+            imageUrl: product.imageUrl ?? "",
             price: product.price.toString(),
             categoryId: product.categoryId,
           }
@@ -118,6 +124,19 @@ export function ProductFormDialog({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="description">Açıklama</Label>
             <Textarea id="description" {...register("description")} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="imageUrl">Görsel URL'si</Label>
+            <Input
+              id="imageUrl"
+              type="url"
+              aria-invalid={!!errors.imageUrl}
+              {...register("imageUrl")}
+            />
+            {errors.imageUrl && (
+              <p className="text-sm text-danger">{errors.imageUrl.message}</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -2,6 +2,7 @@ import { MinusIcon, PlusIcon, ShoppingCartIcon } from "lucide-react"
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { toast } from "sonner"
+import { ProductImage } from "@/components/ProductImage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -30,7 +31,7 @@ export function ProductDetailPage() {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
         <p className="text-muted-foreground">Ürün bulunamadı.</p>
-        <Link to="/" className="text-accent hover:underline">
+        <Link to="/products" className="text-accent hover:underline">
           Ürünlere dön
         </Link>
       </div>
@@ -39,9 +40,16 @@ export function ProductDetailPage() {
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <Link to="/" className="text-sm text-text-secondary hover:text-accent">
+      <Link to="/products" className="text-sm text-text-secondary hover:text-accent">
         ← Ürünlere dön
       </Link>
+
+      <ProductImage
+        src={product.imageUrl}
+        alt={product.name}
+        className="h-64 w-full rounded-xl"
+        iconClassName="size-10"
+      />
 
       <div className="flex flex-col gap-2">
         <Badge variant="outline" className="w-fit">
@@ -92,7 +100,12 @@ export function ProductDetailPage() {
           type="button"
           onClick={() => {
             addItem(
-              { id: product.id, name: product.name, price: product.price },
+              {
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                imageUrl: product.imageUrl,
+              },
               quantity
             )
             toast.success(`${product.name} sepete eklendi.`)

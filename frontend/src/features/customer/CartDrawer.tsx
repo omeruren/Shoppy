@@ -7,6 +7,7 @@ import {
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
+import { ProductImage } from "@/components/ProductImage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -53,6 +54,12 @@ export function CartDrawer() {
             <ul className="flex flex-col gap-4">
               {items.map((item) => (
                 <li key={item.productId} className="flex items-center gap-2">
+                  <ProductImage
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="h-10 w-10 shrink-0 rounded-md"
+                    iconClassName="size-4"
+                  />
                   <div className="flex-1">
                     <p className="text-sm font-medium">{item.name}</p>
                     <p className="text-xs text-muted-foreground">

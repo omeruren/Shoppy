@@ -2,6 +2,7 @@ import { MinusIcon, PlusIcon, ShoppingCartIcon } from "lucide-react"
 import { useState } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
+import { ProductImage } from "@/components/ProductImage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +26,11 @@ export function ProductCard({ product }: { product: ProductResultDto }) {
 
   return (
     <Card>
+      <ProductImage
+        src={product.imageUrl}
+        alt={product.name}
+        className="h-40 w-full rounded-t-xl"
+      />
       <CardHeader>
         <Link to={`/products/${product.id}`}>
           <CardTitle className="hover:text-accent">{product.name}</CardTitle>
@@ -78,7 +84,12 @@ export function ProductCard({ product }: { product: ProductResultDto }) {
           className="flex-1"
           onClick={() => {
             addItem(
-              { id: product.id, name: product.name, price: product.price },
+              {
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                imageUrl: product.imageUrl,
+              },
               quantity
             )
             toast.success(`${product.name} sepete eklendi.`)
