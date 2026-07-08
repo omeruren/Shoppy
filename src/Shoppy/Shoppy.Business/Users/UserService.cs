@@ -23,6 +23,11 @@ public sealed class UserService(UserManager<User> _userManager, ILogger<UserServ
         var result = await _userManager.Users
             .AsNoTracking()
             .Where(u => !u.IsDeleted)
+            .Where(u => string.IsNullOrWhiteSpace(request.SearchTerm)
+                || u.FirstName.Contains(request.SearchTerm)
+                || u.LastName.Contains(request.SearchTerm)
+                || u.UserName!.Contains(request.SearchTerm)
+                || u.Email!.Contains(request.SearchTerm))
             .OrderBy(u => u.FullName)
             .Select(u => new UserProfileDto(u.Id, u.FirstName, u.LastName, u.FullName, u.UserName!, u.Email!))
             .WithPagination(request, cancellationToken);

@@ -1,6 +1,7 @@
 import { client } from "@/api/client"
 import type { ApiResult } from "@/types/api.types"
 import type {
+  PermissionCatalogItem,
   RoleCreateDto,
   RoleResultDto,
   RoleUpdateDto,
@@ -27,5 +28,29 @@ export async function updateRole(request: RoleUpdateDto) {
 
 export async function deleteRole(id: string) {
   const { data } = await client.delete<ApiResult<string>>(`/roles/${id}`)
+  return data
+}
+
+export async function getRolePermissions(roleId: string) {
+  const { data } = await client.get<ApiResult<string[]>>(
+    `/roles/${roleId}/permissions`
+  )
+  return data
+}
+
+export async function updateRolePermissions(
+  roleId: string,
+  permissions: string[]
+) {
+  const { data } = await client.put<ApiResult<string>>(
+    `/roles/${roleId}/permissions`,
+    { permissions }
+  )
+  return data
+}
+
+export async function getPermissionCatalog() {
+  const { data } =
+    await client.get<ApiResult<PermissionCatalogItem[]>>("/permissions")
   return data
 }

@@ -29,6 +29,7 @@ public static class ErrorMessages
         public const string NotFound = "Role not found.";
         public const string AlreadyExists = "Role already exists.";
         public const string NameAlreadyExists = "Role name already exists.";
+        public const string UnknownPermission = "One or more permissions are unknown.";
     }
 
     public static class User

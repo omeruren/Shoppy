@@ -10,4 +10,7 @@ public interface IRoleService
     Task<Result<string>> CreateAsync(RoleCreateDto request, CancellationToken cancellationToken);
     Task<Result<string>> UpdateAsync(RoleUpdateDto request, CancellationToken cancellationToken);
     Task<Result<string>> DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<Result<List<string>>> GetPermissionsAsync(Guid roleId, CancellationToken cancellationToken);
+    Task<Result<string>> UpdatePermissionsAsync(Guid roleId, List<string> permissions, CancellationToken cancellationToken);
 }

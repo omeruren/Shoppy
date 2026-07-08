@@ -114,6 +114,21 @@ public class UserServiceTests
         result.Data.Data.Should().OnlyContain(u => u.UserName != "deleted1");
     }
 
+    [Fact]
+    public async Task GetAllAsync_Should_Filter_By_SearchTerm()
+    {
+        await SeedUserAsync("johndoe");
+        await SeedUserAsync("janedoe");
+
+        var request = new PaginationRequestDto(1, 10, "john");
+
+        var result = await _service.GetAllAsync(request, CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+        result.Data!.TotalCount.Should().Be(1);
+        result.Data.Data.Should().OnlyContain(u => u.UserName == "johndoe");
+    }
+
     // ─────────────────────────────────────────────
     //  CreateAsync
     // ─────────────────────────────────────────────
@@ -169,7 +184,7 @@ public class UserServiceTests
         SetupFindById(user);
         _userManager.UpdateAsync(user).Returns(Task.FromResult(IdentityResult.Success));
 
-        var request = new UserUpdateDto(user.Id, "Updated", "Name", "updateduser", "updated@example.com", string.Empty);
+        var request = new UserUpdateDto(user.Id, "Updated", "Name", "updateduser", "updated@example.com");
 
         var result = await _service.UpdateAsync(request, CancellationToken.None);
 
@@ -182,7 +197,7 @@ public class UserServiceTests
     {
         _userManager.FindByIdAsync(Arg.Any<string>()).Returns(Task.FromResult<User?>(null));
 
-        var request = new UserUpdateDto(Guid.NewGuid(), "A", "B", "c", "c@example.com", string.Empty);
+        var request = new UserUpdateDto(Guid.NewGuid(), "A", "B", "c", "c@example.com");
 
         var result = await _service.UpdateAsync(request, CancellationToken.None);
 

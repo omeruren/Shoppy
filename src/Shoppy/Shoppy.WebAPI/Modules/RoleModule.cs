@@ -86,5 +86,47 @@ public sealed class RoleModule : ICarterModule
             return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Roles.Delete);
 
+        // GET ROLE PERMISSIONS
+        app.MapGet("{id:guid}/permissions", async (
+            Guid id,
+            IRoleService _service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await _service.GetPermissionsAsync(id, cancellationToken);
+
+            return result.ToHttpResult();
+        }).RequireAuthorization(Permissions.Roles.Read);
+
+        // UPDATE ROLE PERMISSIONS
+        app.MapPut("{id:guid}/permissions", async (
+            Guid id,
+            UpdateRolePermissionsDto request,
+            IRoleService _service,
+            CancellationToken cancellationToken) =>
+        {
+            var result = await _service.UpdatePermissionsAsync(id, request.Permissions, cancellationToken);
+
+            return result.ToHttpResult();
+        })
+            .AddEndpointFilter<FluentValidationFilter<UpdateRolePermissionsDto>>()
+            .RequireAuthorization(Permissions.Roles.Update);
+
+        // GET PERMISSION CATALOG (all permissions the app knows about, for building role-permission UIs)
+        var permissionsApp = builder
+            .MapGroup("/api/v{version:apiVersion}/permissions")
+            .WithApiVersionSet(apiVersionSet)
+            .MapToApiVersion(new ApiVersion(1, 0))
+            .WithTags("Roles")
+            .RequireRateLimiting("fixed");
+
+        permissionsApp.MapGet(string.Empty, () =>
+        {
+            var catalog = Permissions.GetAll()
+                .Select(p => new PermissionCatalogDto(p, p[..p.IndexOf('.')]))
+                .ToList();
+
+            return Result<List<PermissionCatalogDto>>.Success(catalog).ToHttpResult();
+        }).RequireAuthorization(Permissions.Roles.Read);
+
     }
 }

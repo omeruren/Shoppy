@@ -6,6 +6,7 @@ using Shoppy.Business.Caching;
 using Shoppy.Business.Roles.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
+using PermissionCatalog = Shoppy.Business.Permissions.Permissions;
 
 namespace Shoppy.Business.Roles;
 
@@ -135,6 +136,57 @@ public sealed class RoleService(ApplicationDbContext _context, ICacheService _ca
         _logger.LogInformation("Role {RoleId} deleted", role.Id);
 
         return "Role deleted.";
+    }
+
+
+    // GET ROLE PERMISSIONS
+    public async Task<Result<List<string>>> GetPermissionsAsync(Guid roleId, CancellationToken cancellationToken)
+    {
+        bool roleExists = await _roles.AnyAsync(r => r.Id == roleId, cancellationToken);
+
+        if (!roleExists)
+            return Result<List<string>>.Failure(404, ErrorMessages.Role.NotFound);
+
+        var permissions = await _context.Set<RolePermission>()
+            .AsNoTracking()
+            .Where(rp => rp.RoleId == roleId)
+            .Select(rp => rp.PermissionName)
+            .ToListAsync(cancellationToken);
+
+        return permissions;
+    }
+
+
+    // UPDATE ROLE PERMISSIONS
+    public async Task<Result<string>> UpdatePermissionsAsync(Guid roleId, List<string> permissions, CancellationToken cancellationToken)
+    {
+        if (permissions.Except(PermissionCatalog.GetAll()).Any())
+            return Result<string>.Failure(400, ErrorMessages.Role.UnknownPermission);
+
+        Role? role = await _roles
+            .Include(r => r.RolePermissions)
+            .FirstOrDefaultAsync(r => r.Id == roleId, cancellationToken);
+
+        if (role is null)
+            return Result<string>.Failure(404, ErrorMessages.Role.NotFound);
+
+        var desired = permissions.ToHashSet(StringComparer.Ordinal);
+        var current = role.RolePermissions.Select(rp => rp.PermissionName).ToHashSet(StringComparer.Ordinal);
+
+        var toRemove = role.RolePermissions.Where(rp => !desired.Contains(rp.PermissionName)).ToList();
+        foreach (var rp in toRemove)
+            role.RolePermissions.Remove(rp);
+
+        foreach (var permission in desired.Where(p => !current.Contains(p)))
+            role.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionName = permission });
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        await _cacheService.InvalidatePrefixAsync(CacheKeyPrefix);
+
+        _logger.LogInformation("Role {RoleId} permissions updated ({Count} permissions)", role.Id, desired.Count);
+
+        return "Role permissions updated.";
     }
 
 }

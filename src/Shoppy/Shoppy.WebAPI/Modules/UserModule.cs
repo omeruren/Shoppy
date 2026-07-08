@@ -5,6 +5,7 @@ using Shoppy.Business.Permissions;
 using Shoppy.Business.Users;
 using Shoppy.Business.Users.DataTransferObjects;
 using Shoppy.Business.Extensions;
+using Shoppy.WebAPI.Filters;
 using System.Security.Claims;
 
 namespace Shoppy.WebAPI.Modules;
@@ -63,7 +64,8 @@ public class UserModule : ICarterModule
             var result = await _service.CreateAsync(request, cancellationToken);
 
             return result.ToHttpResult(location: string.Empty);
-        }).RequireAuthorization(Permissions.Users.Create);
+        }).AddEndpointFilter<FluentValidationFilter<UserCreateDto>>()
+          .RequireAuthorization(Permissions.Users.Create);
 
         // UPDATE USER
 
@@ -77,7 +79,8 @@ public class UserModule : ICarterModule
             var result = await _service.UpdateAsync(request, cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization(Permissions.Users.Update);
+        }).AddEndpointFilter<FluentValidationFilter<UserUpdateDto>>()
+          .RequireAuthorization(Permissions.Users.Update);
 
 
         // DELETE USER
@@ -120,7 +123,8 @@ public class UserModule : ICarterModule
             var result = await _service.UpdateSelfAsync(userId, request, cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization();
+        }).AddEndpointFilter<FluentValidationFilter<UserUpdateSelfDto>>()
+          .RequireAuthorization();
 
         // CHANGE MY PASSWORD
 
@@ -134,7 +138,8 @@ public class UserModule : ICarterModule
             var result = await _service.ChangePasswordAsync(userId, request, cancellationToken);
 
             return result.ToHttpResult();
-        }).RequireAuthorization();
+        }).AddEndpointFilter<FluentValidationFilter<ChangePasswordDto>>()
+          .RequireAuthorization();
 
     }
 }

@@ -13,3 +13,8 @@ export interface RoleUpdateDto extends RoleCreateDto {
   id: string
   rowVersion?: string
 }
+
+export interface PermissionCatalogItem {
+  name: string
+  group: string
+}

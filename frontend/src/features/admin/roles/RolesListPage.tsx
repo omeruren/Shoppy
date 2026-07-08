@@ -1,5 +1,11 @@
 import type { ColumnDef, PaginationState } from "@tanstack/react-table"
-import { MoreHorizontalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react"
+import {
+  KeyRoundIcon,
+  MoreHorizontalIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from "lucide-react"
 import { useState } from "react"
 import { DataTable } from "@/components/data-table/DataTable"
 import { ConfirmDeleteDialog } from "@/components/guards/ConfirmDeleteDialog"
@@ -12,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { RoleFormDialog } from "@/features/admin/roles/RoleFormDialog"
+import { RolePermissionsDialog } from "@/features/admin/roles/RolePermissionsDialog"
 import { useDeleteRole, useRolesQuery } from "@/hooks/useRoles"
 import type { RoleResultDto } from "@/types/role.types"
 
@@ -29,6 +36,8 @@ export function RolesListPage() {
     role?: RoleResultDto
   }>({ open: false })
   const [deleteTarget, setDeleteTarget] = useState<RoleResultDto | null>(null)
+  const [permissionsTarget, setPermissionsTarget] =
+    useState<RoleResultDto | null>(null)
 
   const roles = (data?.data ?? []).filter((role) =>
     role.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -52,6 +61,13 @@ export function RolesListPage() {
                 onClick={() => setFormState({ open: true, role: row.original })}
               >
                 <PencilIcon /> Düzenle
+              </DropdownMenuItem>
+            </PermissionGuard>
+            <PermissionGuard permission="Roles.Update">
+              <DropdownMenuItem
+                onClick={() => setPermissionsTarget(row.original)}
+              >
+                <KeyRoundIcon /> Yetkileri Düzenle
               </DropdownMenuItem>
             </PermissionGuard>
             <PermissionGuard permission="Roles.Delete">
@@ -96,6 +112,12 @@ export function RolesListPage() {
         open={formState.open}
         onOpenChange={(open) => setFormState((state) => ({ ...state, open }))}
         role={formState.role}
+      />
+
+      <RolePermissionsDialog
+        open={!!permissionsTarget}
+        onOpenChange={(open) => !open && setPermissionsTarget(null)}
+        role={permissionsTarget}
       />
 
       <ConfirmDeleteDialog

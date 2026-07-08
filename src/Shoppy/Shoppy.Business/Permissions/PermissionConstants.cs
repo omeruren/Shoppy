@@ -57,6 +57,13 @@ public static class Permissions
         public const string Delete = "Categories.Delete";
     }
 
+    public static class UserRoles
+    {
+        public const string Read   = "UserRoles.Read";
+        public const string Create = "UserRoles.Create";
+        public const string Delete = "UserRoles.Delete";
+    }
+
     /// <summary>
     /// Returns all defined permissions as a flat list.
     /// Used for seeding RolePermission mappings.
@@ -75,6 +82,8 @@ public static class Permissions
         Products.Read, Products.Create, Products.Update, Products.Delete,
 
         Categories.Read, Categories.Create, Categories.Update, Categories.Delete,
+
+        UserRoles.Read, UserRoles.Create, UserRoles.Delete,
     ];
 
     /// <summary>

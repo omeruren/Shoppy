@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shoppy.Business.Caching;
+using Shoppy.Business.Permissions;
 using Shoppy.Business.Roles;
 using Shoppy.Business.Roles.DataTransferObjects;
 using Shoppy.DataAccess.Context;
@@ -180,5 +181,79 @@ public class RoleServiceTests
 
         result.IsSuccessful.Should().BeFalse();
         result.StatusCode.Should().Be(404);
+    }
+
+    // ─────────────────────────────────────────────
+    //  GetPermissionsAsync / UpdatePermissionsAsync
+    // ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPermissionsAsync_Should_Fail_When_Role_Not_Found()
+    {
+        var result = await _service.GetPermissionsAsync(Guid.NewGuid(), CancellationToken.None);
+
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(404);
+    }
+
+    [Fact]
+    public async Task GetPermissionsAsync_Should_Return_Empty_List_When_Role_Has_No_Permissions()
+    {
+        var role = await SeedRoleAsync("Manager");
+
+        var result = await _service.GetPermissionsAsync(role.Id, CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+        result.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task UpdatePermissionsAsync_Should_Assign_Valid_Permissions()
+    {
+        var role = await SeedRoleAsync("Manager");
+
+        var result = await _service.UpdatePermissionsAsync(
+            role.Id, [Permissions.Products.Read, Permissions.Categories.Read], CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+
+        var permissions = await _service.GetPermissionsAsync(role.Id, CancellationToken.None);
+        permissions.Data.Should().BeEquivalentTo([Permissions.Products.Read, Permissions.Categories.Read]);
+    }
+
+    [Fact]
+    public async Task UpdatePermissionsAsync_Should_Reject_Unknown_Permission()
+    {
+        var role = await SeedRoleAsync("Manager");
+
+        var result = await _service.UpdatePermissionsAsync(
+            role.Id, ["NotARealPermission.Read"], CancellationToken.None);
+
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+    }
+
+    [Fact]
+    public async Task UpdatePermissionsAsync_Should_Fail_When_Role_Not_Found()
+    {
+        var result = await _service.UpdatePermissionsAsync(
+            Guid.NewGuid(), [Permissions.Products.Read], CancellationToken.None);
+
+        result.IsSuccessful.Should().BeFalse();
+        result.StatusCode.Should().Be(404);
+    }
+
+    [Fact]
+    public async Task UpdatePermissionsAsync_Should_Clear_Permissions_When_Given_Empty_List()
+    {
+        var role = await SeedRoleAsync("Manager");
+        await _service.UpdatePermissionsAsync(role.Id, [Permissions.Products.Read], CancellationToken.None);
+
+        var result = await _service.UpdatePermissionsAsync(role.Id, [], CancellationToken.None);
+
+        result.IsSuccessful.Should().BeTrue();
+
+        var permissions = await _service.GetPermissionsAsync(role.Id, CancellationToken.None);
+        permissions.Data.Should().BeEmpty();
     }
 }
