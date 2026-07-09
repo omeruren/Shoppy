@@ -2,6 +2,7 @@ using Shoppy.Business.Categories.DataTransferObjects;
 using Shoppy.Business.OrderItems.DataTransferObjects;
 using Shoppy.Business.Orders.DataTransferObjects;
 using Shoppy.Business.Products.DataTransferObjects;
+using Shoppy.Business.Roles.DataTransferObjects;
 
 namespace Shoppy.Business.Extensions;
 
@@ -56,6 +57,19 @@ public static class SortingExtension
             "updatedat" => desc ? query.OrderByDescending(i => i.UpdatedAt) : query.OrderBy(i => i.UpdatedAt),
             "quantity" => desc ? query.OrderByDescending(i => i.Quantity) : query.OrderBy(i => i.Quantity),
             _ => query.OrderBy(i => i.CreatedAt),
+        };
+    }
+
+    public static IQueryable<RoleResultDto> ApplyRoleSort(this IQueryable<RoleResultDto> query, string? sortBy, string? sortDirection)
+    {
+        bool desc = IsDescending(sortDirection);
+
+        return sortBy?.ToLowerInvariant() switch
+        {
+            "createdat" => desc ? query.OrderByDescending(r => r.CreatedAt) : query.OrderBy(r => r.CreatedAt),
+            "updatedat" => desc ? query.OrderByDescending(r => r.UpdatedAt) : query.OrderBy(r => r.UpdatedAt),
+            "name" => desc ? query.OrderByDescending(r => r.Name) : query.OrderBy(r => r.Name),
+            _ => query.OrderBy(r => r.Name),
         };
     }
 

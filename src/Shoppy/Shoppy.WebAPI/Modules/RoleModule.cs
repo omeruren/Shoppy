@@ -1,6 +1,7 @@
 ﻿using Asp.Versioning;
 using Carter;
 using Shoppy.Business.BaseResult;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.Permissions;
 using Shoppy.Business.Roles;
 using Shoppy.Business.Roles.DataTransferObjects;
@@ -27,9 +28,15 @@ public sealed class RoleModule : ICarterModule
         // GET ALL ROLES
         app.MapGet(string.Empty, async (
             IRoleService _service,
-            CancellationToken cancellationToken) =>
+            int pageNumber = 1,
+            int pageSize = 5,
+            string searchTerm = "",
+            string? sortBy = null,
+            string? sortDirection = null,
+            CancellationToken cancellationToken = default) =>
         {
-            var result = await _service.GetAllAsync(cancellationToken);
+            var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm, sortBy, sortDirection);
+            var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
 
             return result.ToHttpResult();
         }).RequireAuthorization(Permissions.Roles.Read);

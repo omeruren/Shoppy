@@ -34,10 +34,11 @@ public class ProductModule : ICarterModule
             string searchTerm = "",
             string? sortBy = null,
             string? sortDirection = null,
+            Guid? categoryId = null,
             CancellationToken cancellationToken = default) =>
         {
             var paginationRequest = new PaginationRequestDto(pageNumber, pageSize, searchTerm, sortBy, sortDirection);
-            var result = await _service.GetAllAsync(paginationRequest, cancellationToken);
+            var result = await _service.GetAllAsync(paginationRequest, categoryId, cancellationToken);
 
             return result.ToHttpResult();
 

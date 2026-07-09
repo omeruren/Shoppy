@@ -99,7 +99,7 @@ public class ProductServiceTests
 
         var request = new PaginationRequestDto(1, 10, string.Empty);
 
-        var result = await _service.GetAllAsync(request, CancellationToken.None);
+        var result = await _service.GetAllAsync(request, null, CancellationToken.None);
 
         result.IsSuccessful.Should().BeTrue();
         result.Data!.TotalCount.Should().Be(3);
@@ -115,10 +115,26 @@ public class ProductServiceTests
 
         var request = new PaginationRequestDto(1, 10, "Widget");
 
-        var result = await _service.GetAllAsync(request, CancellationToken.None);
+        var result = await _service.GetAllAsync(request, null, CancellationToken.None);
 
         result.Data!.TotalCount.Should().Be(1);
         result.Data.Data.Single().Name.Should().Be("Red Widget");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Should_Filter_By_CategoryId()
+    {
+        var categoryA = await SeedCategoryAsync("A");
+        var categoryB = await SeedCategoryAsync("B");
+        await SeedProductAsync("In A", categoryA.Id);
+        await SeedProductAsync("In B", categoryB.Id);
+
+        var request = new PaginationRequestDto(1, 10, string.Empty);
+
+        var result = await _service.GetAllAsync(request, categoryA.Id, CancellationToken.None);
+
+        result.Data!.TotalCount.Should().Be(1);
+        result.Data.Data.Single().Name.Should().Be("In A");
     }
 
     [Fact]
@@ -129,7 +145,7 @@ public class ProductServiceTests
 
         var request = new PaginationRequestDto(1, 1_000_000, string.Empty);
 
-        var result = await _service.GetAllAsync(request, CancellationToken.None);
+        var result = await _service.GetAllAsync(request, null, CancellationToken.None);
 
         result.IsSuccessful.Should().BeTrue();
         result.Data!.PageSize.Should().Be(100);
@@ -143,7 +159,7 @@ public class ProductServiceTests
 
         var request = new PaginationRequestDto(-5, 10, string.Empty);
 
-        var result = await _service.GetAllAsync(request, CancellationToken.None);
+        var result = await _service.GetAllAsync(request, null, CancellationToken.None);
 
         result.IsSuccessful.Should().BeTrue();
         result.Data!.PageNumber.Should().Be(1);
@@ -197,7 +213,7 @@ public class ProductServiceTests
         var byId = await _service.GetByIdAsync(product.Id, CancellationToken.None);
         byId.Data!.ImageUrl.Should().Be("https://example.com/image.png");
 
-        var all = await _service.GetAllAsync(new PaginationRequestDto(1, 10, string.Empty), CancellationToken.None);
+        var all = await _service.GetAllAsync(new PaginationRequestDto(1, 10, string.Empty), null, CancellationToken.None);
         all.Data!.Data.Single(p => p.Id == product.Id).ImageUrl.Should().Be("https://example.com/image.png");
     }
 

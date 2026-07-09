@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Shoppy.Business.Caching;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.Permissions;
 using Shoppy.Business.Roles;
 using Shoppy.Business.Roles.DataTransferObjects;
@@ -53,11 +54,22 @@ public class RoleServiceTests
         await SeedRoleAsync("Customer");
         await SeedRoleAsync("Admin");
 
-        var result = await _service.GetAllAsync(CancellationToken.None);
+        var result = await _service.GetAllAsync(new PaginationRequestDto(1, 10, string.Empty), CancellationToken.None);
 
         result.IsSuccessful.Should().BeTrue();
-        result.Data.Should().HaveCount(2);
-        result.Data!.Select(r => r.Name).Should().ContainInOrder("Admin", "Customer");
+        result.Data!.Data.Should().HaveCount(2);
+        result.Data.Data.Select(r => r.Name).Should().ContainInOrder("Admin", "Customer");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_Should_Filter_By_SearchTerm()
+    {
+        await SeedRoleAsync("Customer");
+        await SeedRoleAsync("Admin");
+
+        var result = await _service.GetAllAsync(new PaginationRequestDto(1, 10, "Admin"), CancellationToken.None);
+
+        result.Data!.Data.Should().ContainSingle().Which.Name.Should().Be("Admin");
     }
 
     // ─────────────────────────────────────────────

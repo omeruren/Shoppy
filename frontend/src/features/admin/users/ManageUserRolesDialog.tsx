@@ -7,7 +7,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useRolesQuery } from "@/hooks/useRoles"
+import { useRoleOptions } from "@/hooks/useRoles"
 import {
   useAssignUserRole,
   useRemoveUserRole,
@@ -26,15 +26,13 @@ export function ManageUserRolesDialog({
   onOpenChange,
   user,
 }: ManageUserRolesDialogProps) {
-  const { data: rolesResult, isLoading: rolesLoading } = useRolesQuery()
+  const { roles, isLoading: rolesLoading } = useRoleOptions()
   const { data: userRolesResult, isLoading: userRolesLoading } =
     useUserRolesQuery()
   const assignRole = useAssignUserRole()
   const removeRole = useRemoveUserRole()
 
   if (!user) return null
-
-  const roles = rolesResult?.data ?? []
   const assignedRoleIds = new Set(
     (userRolesResult?.data ?? [])
       .filter((userRole) => userRole.userId === user.id)

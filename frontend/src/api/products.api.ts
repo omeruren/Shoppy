@@ -7,7 +7,11 @@ import type {
   ProductUpdateDto,
 } from "@/types/product.types"
 
-export async function getProducts(params: ResourceListQueryParams) {
+export type ProductListQueryParams = ResourceListQueryParams & {
+  categoryId?: string
+}
+
+export async function getProducts(params: ProductListQueryParams) {
   const { data } = await client.get<
     ApiResult<PaginationResultDto<ProductResultDto>>
   >("/products", { params })

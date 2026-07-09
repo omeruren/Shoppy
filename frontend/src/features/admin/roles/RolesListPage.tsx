@@ -1,4 +1,4 @@
-import type { ColumnDef, PaginationState } from "@tanstack/react-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import {
   KeyRoundIcon,
   MoreHorizontalIcon,
@@ -20,17 +20,16 @@ import {
 import { RoleFormDialog } from "@/features/admin/roles/RoleFormDialog"
 import { RolePermissionsDialog } from "@/features/admin/roles/RolePermissionsDialog"
 import { useDeleteRole, useRolesQuery } from "@/hooks/useRoles"
+import { useResourceListState } from "@/hooks/useResourceListState"
 import type { RoleResultDto } from "@/types/role.types"
 
 export function RolesListPage() {
-  const { data, isLoading } = useRolesQuery()
+  const { pagination, setPagination, searchTerm, setSearchTerm, queryParams } =
+    useResourceListState({ initialPageSize: 10 })
+
+  const { data, isLoading } = useRolesQuery(queryParams)
   const deleteRole = useDeleteRole()
 
-  const [searchTerm, setSearchTerm] = useState("")
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10,
-  })
   const [formState, setFormState] = useState<{
     open: boolean
     role?: RoleResultDto
@@ -38,10 +37,6 @@ export function RolesListPage() {
   const [deleteTarget, setDeleteTarget] = useState<RoleResultDto | null>(null)
   const [permissionsTarget, setPermissionsTarget] =
     useState<RoleResultDto | null>(null)
-
-  const roles = (data?.data ?? []).filter((role) =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
 
   const columns: ColumnDef<RoleResultDto>[] = [
     { accessorKey: "name", header: "İsim" },
@@ -97,8 +92,8 @@ export function RolesListPage() {
 
       <DataTable
         columns={columns}
-        data={roles}
-        pageCount={1}
+        data={data?.data?.data ?? []}
+        pageCount={data?.data?.totalPageCount ?? 0}
         pagination={pagination}
         onPaginationChange={setPagination}
         searchValue={searchTerm}

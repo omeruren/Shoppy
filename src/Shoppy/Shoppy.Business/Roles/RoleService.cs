@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Shoppy.Business.BaseResult;
 using Shoppy.Business.Caching;
+using Shoppy.Business.Extensions;
 using Shoppy.Business.Roles.DataTransferObjects;
 using Shoppy.DataAccess.Context;
 using Shoppy.Entity.Models;
@@ -13,18 +14,17 @@ namespace Shoppy.Business.Roles;
 public sealed class RoleService(ApplicationDbContext _context, ICacheService _cacheService, ILogger<RoleService> _logger) : IRoleService
 {
     private const string CacheKeyPrefix = "roles";
-    private const string CacheKey = "roles:all";
     private readonly DbSet<Role> _roles = _context.Set<Role>();
 
 
     // GET ALL ROLES
-    public async Task<Result<List<RoleResultDto>>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<Result<PaginationResultDto<RoleResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
     {
-        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, CacheKey, async () =>
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
         {
             return await _roles
                .AsNoTracking()
-               .OrderBy(r => r.Name)
+               .Where(r => string.IsNullOrWhiteSpace(request.SearchTerm) || r.Name.Contains(request.SearchTerm))
                .Select(r => new RoleResultDto
                {
                    Id = r.Id,
@@ -41,7 +41,8 @@ public sealed class RoleService(ApplicationDbContext _context, ICacheService _ca
                    DeletedBy = r.DeletedBy,
                    DeletedAt = r.DeletedAt,
                })
-               .ToListAsync(cancellationToken);
+               .ApplyRoleSort(request.SortBy, request.SortDirection)
+               .WithPagination(request, cancellationToken);
         }, TimeSpan.FromMinutes(5));
     }
 

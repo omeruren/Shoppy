@@ -5,18 +5,18 @@ import {
   deleteProduct,
   getProductById,
   getProducts,
+  type ProductListQueryParams,
   updateProduct,
 } from "@/api/products.api"
-import type { ResourceListQueryParams } from "@/hooks/useResourceListState"
 import { handleApiError } from "@/lib/handle-api-error"
 
 const productKeys = {
   all: ["products"] as const,
-  list: (params: ResourceListQueryParams) =>
+  list: (params: ProductListQueryParams) =>
     [...productKeys.all, "list", params] as const,
 }
 
-export function useProductsQuery(params: ResourceListQueryParams) {
+export function useProductsQuery(params: ProductListQueryParams) {
   return useQuery({
     queryKey: productKeys.list(params),
     queryFn: () => getProducts(params),

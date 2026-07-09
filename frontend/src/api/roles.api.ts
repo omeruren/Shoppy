@@ -1,5 +1,6 @@
 import { client } from "@/api/client"
-import type { ApiResult } from "@/types/api.types"
+import type { ResourceListQueryParams } from "@/hooks/useResourceListState"
+import type { ApiResult, PaginationResultDto } from "@/types/api.types"
 import type {
   PermissionCatalogItem,
   RoleCreateDto,
@@ -7,9 +8,11 @@ import type {
   RoleUpdateDto,
 } from "@/types/role.types"
 
-export async function getRoles() {
-  const { data } =
-    await client.get<ApiResult<RoleResultDto[]>>("/roles")
+export async function getRoles(params: ResourceListQueryParams) {
+  const { data } = await client.get<ApiResult<PaginationResultDto<RoleResultDto>>>(
+    "/roles",
+    { params }
+  )
   return data
 }
 

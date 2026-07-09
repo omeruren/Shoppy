@@ -16,12 +16,15 @@ public sealed class ProductService(ApplicationDbContext _context, ICacheService 
     private readonly DbSet<Product> _products = _context.Set<Product>();
 
     // Get All Products
-    public async Task<Result<PaginationResultDto<ProductResultDto>>> GetAllAsync(PaginationRequestDto request, CancellationToken cancellationToken)
+    public async Task<Result<PaginationResultDto<ProductResultDto>>> GetAllAsync(PaginationRequestDto request, Guid? categoryId, CancellationToken cancellationToken)
     {
-        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, request.ToCacheKey(CacheKeyPrefix), async () =>
+        var cacheKey = request.ToCacheKey(CacheKeyPrefix) + $":cat{categoryId}";
+
+        return await _cacheService.GetOrCreateAsync(CacheKeyPrefix, cacheKey, async () =>
         {
             return await _products
                 .AsNoTracking()
+                .Where(p => categoryId == null || p.CategoryId == categoryId)
                 .Where(p => string.IsNullOrWhiteSpace(request.SearchTerm)
                     || p.Name.Contains(request.SearchTerm)
                     || (p.Description != null && p.Description.Contains(request.SearchTerm)))

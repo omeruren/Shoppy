@@ -9,20 +9,32 @@ import {
   updateRole,
   updateRolePermissions,
 } from "@/api/roles.api"
+import type { ResourceListQueryParams } from "@/hooks/useResourceListState"
 import { handleApiError } from "@/lib/handle-api-error"
 
 const roleKeys = {
   all: ["roles"] as const,
+  list: (params: ResourceListQueryParams) =>
+    [...roleKeys.all, "list", params] as const,
   permissions: (roleId: string) => ["roles", roleId, "permissions"] as const,
 }
 
 const permissionCatalogKey = ["permissions", "catalog"] as const
 
-export function useRolesQuery() {
+export function useRolesQuery(params: ResourceListQueryParams) {
   return useQuery({
-    queryKey: roleKeys.all,
-    queryFn: getRoles,
+    queryKey: roleKeys.list(params),
+    queryFn: () => getRoles(params),
+    placeholderData: (previousData) => previousData,
   })
+}
+
+/** Fetches a large, unfiltered page of roles for use in checklists elsewhere
+ * (e.g. the user role-assignment dialog) rather than the paginated admin list. */
+export function useRoleOptions() {
+  const { data, isLoading } = useRolesQuery({ pageNumber: 1, pageSize: 100 })
+
+  return { roles: data?.data?.data ?? [], isLoading }
 }
 
 export function useCreateRole() {

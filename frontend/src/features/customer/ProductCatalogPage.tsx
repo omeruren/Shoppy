@@ -12,38 +12,33 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { ProductCard } from "@/features/customer/ProductCard"
 import { useCategoryOptions } from "@/hooks/useCategories"
-import { useProductOptions } from "@/hooks/useProducts"
+import { useProductsQuery } from "@/hooks/useProducts"
+import { useResourceListState } from "@/hooks/useResourceListState"
 
 const PAGE_SIZE = 12
 
 export function ProductCatalogPage() {
-  const [searchTerm, setSearchTerm] = useState("")
   const [categoryId, setCategoryId] = useState("all")
-  const [pageIndex, setPageIndex] = useState(0)
+
+  const { pagination, setPagination, searchTerm, setSearchTerm, queryParams } =
+    useResourceListState({ initialPageSize: PAGE_SIZE })
 
   const { categories } = useCategoryOptions()
-  // Backend's searchTerm query param isn't implemented server-side yet (see
-  // CLAUDE.md), so fetch the (small, demo-scale) full catalog once and do
-  // search/category filtering + pagination entirely client-side.
-  const { products, isLoading } = useProductOptions()
-
-  const normalizedSearch = searchTerm.trim().toLowerCase()
-  const filtered = products.filter(
-    (product) =>
-      (categoryId === "all" || product.categoryId === categoryId) &&
-      (normalizedSearch === "" ||
-        product.name.toLowerCase().includes(normalizedSearch))
-  )
+  const { data, isLoading } = useProductsQuery({
+    ...queryParams,
+    categoryId: categoryId === "all" ? undefined : categoryId,
+  })
 
   useEffect(() => {
-    setPageIndex(0)
-  }, [searchTerm, categoryId])
+    setPagination((current) =>
+      current.pageIndex === 0 ? current : { ...current, pageIndex: 0 }
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId])
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const pageItems = filtered.slice(
-    pageIndex * PAGE_SIZE,
-    pageIndex * PAGE_SIZE + PAGE_SIZE
-  )
+  const pageItems = data?.data?.data ?? []
+  const pageCount = Math.max(1, data?.data?.totalPageCount ?? 1)
+  const pageIndex = pagination.pageIndex
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,7 +76,7 @@ export function ProductCatalogPage() {
             ))}
       </div>
 
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && pageItems.length === 0 && (
         <p className="py-8 text-center text-muted-foreground">
           Ürün bulunamadı.
         </p>
@@ -95,7 +90,12 @@ export function ProductCatalogPage() {
           <Button
             variant="outline"
             size="icon-sm"
-            onClick={() => setPageIndex((index) => Math.max(0, index - 1))}
+            onClick={() =>
+              setPagination((current) => ({
+                ...current,
+                pageIndex: Math.max(0, current.pageIndex - 1),
+              }))
+            }
             disabled={pageIndex === 0}
           >
             <ChevronLeftIcon />
@@ -104,7 +104,10 @@ export function ProductCatalogPage() {
             variant="outline"
             size="icon-sm"
             onClick={() =>
-              setPageIndex((index) => Math.min(pageCount - 1, index + 1))
+              setPagination((current) => ({
+                ...current,
+                pageIndex: Math.min(pageCount - 1, current.pageIndex + 1),
+              }))
             }
             disabled={pageIndex + 1 >= pageCount}
           >
